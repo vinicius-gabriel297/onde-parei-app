@@ -13,9 +13,21 @@ import 'screens/home/home_screen.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
+  // Inicialização segura do Firebase com tratamento de erros
+  try {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+  } catch (e) {
+    print('⚠️ Firebase não configurado: $e');
+    print('ℹ️ Execute: flutterfire configure');
+    print('ℹ️ Para execução local sem Firebase, modifique este arquivo');
+
+    // Para desenvolvimento local sem Firebase configurado:
+    // await Firebase.initializeApp();
+
+    throw Exception('Firebase não configurado. Siga as instruções no README.md');
+  }
 
   runApp(const MyApp());
 }
