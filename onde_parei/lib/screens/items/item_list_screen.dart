@@ -32,9 +32,14 @@ class _ItemListScreenState extends State<ItemListScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Meus Itens'),
+        backgroundColor: const Color(0xFF8D6E63), // Antique Brown - mesma cor dos outros headers
+        foregroundColor: Colors.white, // Texto branco para contraste
+        title: const Text(
+          'Meus Itens',
+          style: TextStyle(color: Colors.white),
+        ),
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
+          icon: const Icon(Icons.arrow_back, color: Colors.white),
           onPressed: () => Navigator.pop(context),
         ),
         actions: [

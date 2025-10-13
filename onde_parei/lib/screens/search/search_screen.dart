@@ -84,9 +84,14 @@ class _SearchScreenState extends State<SearchScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Buscar Mangá/Livro'),
+        backgroundColor: const Color(0xFF8D6E63), // Antique Brown - mesma cor dos outros headers
+        foregroundColor: Colors.white, // Texto branco para contraste
+        title: const Text(
+          'Buscar Mangá/Livro',
+          style: TextStyle(color: Colors.white),
+        ),
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
+          icon: const Icon(Icons.arrow_back, color: Colors.white),
           onPressed: () => Navigator.pop(context),
         ),
         actions: [
@@ -103,27 +108,21 @@ class _SearchScreenState extends State<SearchScreen> {
               child: Row(
                 children: [
                   Text(
-                    _selectedTypeFilter == 'todos' ? 'Todos' :
-                    _selectedTypeFilter == 'manga' ? 'Mangás' : 'Livros',
-                    style: const TextStyle(fontSize: 14),
+                    _selectedTypeFilter == 'todos'
+                        ? 'Todos'
+                        : _selectedTypeFilter == 'manga'
+                        ? 'Mangás'
+                        : 'Livros',
+                    style: const TextStyle(fontSize: 14, color: Colors.white),
                   ),
-                  const Icon(Icons.arrow_drop_down),
+                  const Icon(Icons.arrow_drop_down, color: Colors.white),
                 ],
               ),
             ),
             itemBuilder: (context) => [
-              const PopupMenuItem(
-                value: 'todos',
-                child: Text('Todos'),
-              ),
-              const PopupMenuItem(
-                value: 'manga',
-                child: Text('Mangás'),
-              ),
-              const PopupMenuItem(
-                value: 'book',
-                child: Text('Livros'),
-              ),
+              const PopupMenuItem(value: 'todos', child: Text('Todos')),
+              const PopupMenuItem(value: 'manga', child: Text('Mangás')),
+              const PopupMenuItem(value: 'book', child: Text('Livros')),
             ],
           ),
         ],
