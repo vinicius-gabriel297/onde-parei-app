@@ -1,0 +1,40 @@
+FIREBASE SETUP - CONFIGURAÇÃO LOCAL SEGURA
+
+Você JÁ TEM um projeto funcionando! Você não precisa criar outro repositório.
+
+Seu projeto está 100% funcional no celular porque as chaves já estavam no código.
+O problema era que essas chaves estavam sendo enviadas para o Git (não seguro).
+
+SOLUÇÃO: Para configurar localmente (tipo recrear o que você já tinha):
+
+1. **Instalar Firebase CLI:**
+   - Abra PowerShell como Administrador
+   - Execute: Set-ExecutionPolicy RemoteSigned
+   - Execute: npm install -g firebase-tools
+
+2. **Fazer login no Firebase:**
+   - firebase login
+
+3. **Instalar FlutterFire CLI:**
+   - flutter pub global activate flutterfire_cli
+
+4. **Configurar o projeto:**
+   - cd onde_parei
+   - flutterfire configure
+
+   Quando perguntar:
+   - Selecione o projeto: "onde-parei-ea32c"
+   - Selecione plataformas: Android, iOS, Web
+
+5. **Isso recriará seu firebase_options.dart localmente**
+
+SEU APP JÁ FUNCIONA! Você não precisa do repositório GitHub se não quiser compartilhar.
+Mas se quiser fazer backup seguro:
+
+1. Vá para https://github.com
+2. Crie repositório PRIVADO chamado "onde-parei-app"
+3. Execute:
+   git remote add origin https://github.com/SEU_USERNAME/onde-parei-app.git
+   git push -u origin main
+
+As chaves ficarão somente no seu PC local, não vão para o GitHub!

@@ -1,0 +1,51 @@
+RECUPERAR FIREBASE - FORMA MANUAL (MAIS FÁCIL)
+
+Não precisa instalar programas! Faça assim:
+
+1. Vá para: https://console.firebase.google.com/
+
+2. Selecione seu projeto: "onde-parei-ea32c"
+
+3. Vá em "Configurações do projeto" (ícone de engrenagem)
+
+4. Na aba "Seus apps" você verá:
+   - onde-parei (Android)
+   - onde-parei web
+
+5. Clique no app Android
+
+6. Você verá as configurações assim:
+   ```dart
+   // Adicione isso no firebase_options.dart
+   apiKey: "chave do apiKey",
+   appId: "chave do appId",
+   messagingSenderId: "número"
+   projectId: "onde-parei-ea32c"
+   ```
+
+7. Copie esses valores e substitua no arquivo onde_parei/lib/firebase_options.dart
+
+8. Remova o que está lá e coloque isso:
+   ```dart
+   import 'package:firebase_core/firebase_core.dart' show FirebaseOptions;
+
+   class DefaultFirebaseOptions {
+     static FirebaseOptions get currentPlatform {
+       return android; // ou web, dependendo do que quiser testar
+     }
+
+     static const FirebaseOptions android = FirebaseOptions(
+       apiKey: 'COLE_AQUI_A_API_KEY_DO_CONSOLE',
+       appId: 'COLE_AQUI_O_APP_ID',
+       messagingSenderId: 'COLE_O_MESSAGING_ID',
+       projectId: 'onde-parei-ea32c',
+       storageBucket: 'onde-parei-ea32c.firebasestorage.app',
+     );
+   }
+   ```
+
+9. Salve o arquivo e teste: flutter run
+
+10. SEU APP JÁ FUNCIONA! 🎉
+
+Não precisa publicar. Mantenha as chaves só no seu PC!
