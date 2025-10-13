@@ -1,0 +1,29 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Helper function to check if user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Helper function to check if user owns the document
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // Items collection - users can only access their own items
+    match /items/{itemId} {
+      // Allow read/write only for the owner of the item
+      allow read, write: if isOwner(resource.data.userId);
+
+      // Allow create if user is authenticated and owns the new item
+      allow create: if isAuthenticated() && isOwner(request.resource.data.userId);
+    }
+
+    // Users collection (if needed for user profiles)
+    match /users/{userId} {
+      // Users can read and write their own profile
+      allow read, write: if isOwner(userId);
+    }
+  }
+}
