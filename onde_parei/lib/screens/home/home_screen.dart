@@ -6,6 +6,7 @@ import '../../services/settings_service.dart';
 import '../../models/item_model.dart';
 import '../items/item_list_screen.dart';
 import '../items/add_item_screen.dart';
+import '../items/edit_item_screen.dart';
 import '../search/search_screen.dart';
 import '../settings/settings_screen.dart';
 
@@ -359,7 +360,12 @@ class _ItemCard extends StatelessWidget {
           ),
         ),
         onTap: () {
-          // TODO: Navegar para tela de detalhes do item
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => EditItemScreen(item: item),
+            ),
+          );
         },
       ),
     );
