@@ -54,7 +54,10 @@ class _HomeScreenState extends State<HomeScreen> {
               color: Colors.white,
             ),
             const SizedBox(width: 8),
-            const Text('Onde Parei ?'),
+            const Text(
+              'Onde Parei ?',
+              style: TextStyle(color: Colors.white),
+            ),
           ],
         ),
         actions: [

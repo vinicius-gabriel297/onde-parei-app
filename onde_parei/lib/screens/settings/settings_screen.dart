@@ -304,6 +304,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                 context,
                                 listen: false,
                               ).signOut();
+
+                              // Navegar de volta ao início (AuthWrapper cuidará do login)
+                              if (context.mounted) {
+                                Navigator.of(context).pushNamedAndRemoveUntil(
+                                  '/',
+                                  (Route<dynamic> route) => false,
+                                );
+                              }
                             }
                           },
                           icon: const Icon(Icons.logout),
