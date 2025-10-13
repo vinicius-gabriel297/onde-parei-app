@@ -1,0 +1,14 @@
+{
+  "projects": {
+    "default": "onde-parei-app-26c6e"
+  },
+  "targets": {
+    "onde-parei-app-26c6e": {
+      "hosting": {
+        "ondeparei": [
+          "ondeparei"
+        ]
+      }
+    }
+  }
+}
