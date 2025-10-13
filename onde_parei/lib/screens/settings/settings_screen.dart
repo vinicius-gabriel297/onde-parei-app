@@ -1,9 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../main.dart'; // Importa ThemeProvider
 import '../../services/auth_service.dart';
 import '../../services/settings_service.dart';
 import '../../models/user_settings.dart';
+
+class ThemeNotifier with ChangeNotifier {
+  bool _isDarkMode = false;
+
+  bool get isDarkMode => _isDarkMode;
+
+  void setDarkMode(bool value) {
+    _isDarkMode = value;
+    notifyListeners();
+  }
+}
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -81,8 +91,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
         // Aplicar tema se mudou
         if (updatedSettings.isDarkMode != _currentSettings!.isDarkMode) {
-          final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
-          themeProvider.setDarkMode(updatedSettings.isDarkMode);
+          Provider.of<ThemeNotifier>(context, listen: false).setDarkMode(updatedSettings.isDarkMode);
         }
 
         ScaffoldMessenger.of(context).showSnackBar(

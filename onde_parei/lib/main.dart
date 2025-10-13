@@ -10,77 +10,15 @@ import 'screens/auth/login_screen.dart';
 import 'screens/auth/signup_screen.dart';
 import 'screens/home/home_screen.dart';
 
-class ThemeProvider with ChangeNotifier {
+class ThemeNotifier with ChangeNotifier {
   bool _isDarkMode = false;
 
   bool get isDarkMode => _isDarkMode;
-
-  ThemeMode get themeMode => _isDarkMode ? ThemeMode.dark : ThemeMode.light;
 
   void setDarkMode(bool value) {
     _isDarkMode = value;
     notifyListeners();
   }
-
-  ThemeData get lightTheme => ThemeData(
-    primarySwatch: Colors.blue,
-    useMaterial3: true,
-    brightness: Brightness.light,
-    appBarTheme: const AppBarTheme(
-      backgroundColor: Colors.blue,
-      foregroundColor: Colors.white,
-      elevation: 2,
-    ),
-    elevatedButtonTheme: ElevatedButtonThemeData(
-      style: ElevatedButton.styleFrom(
-        backgroundColor: Colors.blue,
-        foregroundColor: Colors.white,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8),
-        ),
-      ),
-    ),
-    inputDecorationTheme: InputDecorationTheme(
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(8),
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(8),
-        borderSide: const BorderSide(color: Colors.blue, width: 2),
-      ),
-    ),
-  );
-
-  ThemeData get darkTheme => ThemeData(
-    primarySwatch: Colors.blue,
-    useMaterial3: true,
-    brightness: Brightness.dark,
-    appBarTheme: AppBarTheme(
-      backgroundColor: Colors.grey[900],
-      foregroundColor: Colors.white,
-      elevation: 2,
-    ),
-    elevatedButtonTheme: ElevatedButtonThemeData(
-      style: ElevatedButton.styleFrom(
-        backgroundColor: Colors.blue[700],
-        foregroundColor: Colors.white,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8),
-        ),
-      ),
-    ),
-    inputDecorationTheme: InputDecorationTheme(
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(8),
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(8),
-        borderSide: const BorderSide(color: Colors.blue, width: 2),
-      ),
-    ),
-    cardColor: Colors.grey[800],
-    scaffoldBackgroundColor: Colors.grey[900],
-  );
 }
 
 void main() async {
@@ -111,9 +49,9 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ChangeNotifierProvider(
-      create: (_) => ThemeProvider(),
-      child: Consumer<ThemeProvider>(
-        builder: (context, themeProvider, child) =>
+      create: (_) => ThemeNotifier(),
+      child: Consumer<ThemeNotifier>(
+        builder: (context, themeNotifier, child) =>
           MultiProvider(
             providers: [
               Provider<AuthService>(
@@ -132,9 +70,19 @@ class MyApp extends StatelessWidget {
             child: MaterialApp(
               title: 'Onde Parei?',
               debugShowCheckedModeBanner: false,
-              theme: themeProvider.lightTheme,
-              darkTheme: themeProvider.darkTheme,
-              themeMode: themeProvider.themeMode,
+              theme: ThemeData(
+                primarySwatch: Colors.blue,
+                useMaterial3: true,
+              ),
+              darkTheme: ThemeData.dark(
+                useMaterial3: true,
+              ).copyWith(
+                primaryColor: Colors.blue,
+                colorScheme: const ColorScheme.dark().copyWith(
+                  primary: Colors.blue,
+                ),
+              ),
+              themeMode: themeNotifier.isDarkMode ? ThemeMode.dark : ThemeMode.light,
               home: const AuthWrapper(),
               routes: {
                 '/login': (context) => const LoginScreen(),
