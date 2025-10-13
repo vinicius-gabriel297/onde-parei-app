@@ -75,9 +75,11 @@ class _SignupScreenState extends State<SignupScreen> {
         _errorMessage = e.toString();
       });
     } finally {
-      setState(() {
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -132,8 +134,8 @@ class _SignupScreenState extends State<SignupScreen> {
                     Icons.book,
                     size: 80,
                     color: Color(0xFF8D6E63), // Antique Brown
-                        ),
-                        const SizedBox(height: 24),
+                  ),
+                  const SizedBox(height: 24),
                   const Text(
                     'Criar Nova Conta',
                     textAlign: TextAlign.center,
@@ -262,64 +264,65 @@ class _SignupScreenState extends State<SignupScreen> {
                             return null;
                           },
                         ),
-                      const SizedBox(height: 24),
+                        const SizedBox(height: 24),
 
-                      // Mensagem de erro
-                      if (_errorMessage != null)
-                        Container(
-                          padding: const EdgeInsets.all(12),
-                          margin: const EdgeInsets.only(bottom: 16),
-                          decoration: BoxDecoration(
-                            color: Colors.red.shade50,
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: Colors.red.shade200),
+                        // Mensagem de erro
+                        if (_errorMessage != null)
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            margin: const EdgeInsets.only(bottom: 16),
+                            decoration: BoxDecoration(
+                              color: Colors.red.shade50,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: Colors.red.shade200),
+                            ),
+                            child: Text(
+                              _errorMessage!,
+                              style: TextStyle(color: Colors.red.shade700),
+                              textAlign: TextAlign.center,
+                            ),
                           ),
-                          child: Text(
-                            _errorMessage!,
-                            style: TextStyle(color: Colors.red.shade700),
-                            textAlign: TextAlign.center,
-                          ),
-                        ),
 
-                      // Botão de cadastro
-                      ElevatedButton(
-                        onPressed: _isLoading ? null : _signup,
-                        style: ElevatedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                        ),
-                        child: _isLoading
-                            ? const SizedBox(
-                                height: 20,
-                                width: 20,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                        // Botão de cadastro
+                        ElevatedButton(
+                          onPressed: _isLoading ? null : _signup,
+                          style: ElevatedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                          ),
+                          child: _isLoading
+                              ? const SizedBox(
+                                  height: 20,
+                                  width: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                  ),
+                                )
+                              : const Text(
+                                  'Criar Conta',
+                                  style: TextStyle(fontSize: 16),
                                 ),
-                              )
-                            : const Text(
-                                'Criar Conta',
-                                style: TextStyle(fontSize: 16),
-                              ),
-                      ),
-                      const SizedBox(height: 16),
+                        ),
+                        const SizedBox(height: 16),
 
-                      // Link para login
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const Text('Já tem conta? '),
-                          TextButton(
-                            onPressed: () {
-                              Navigator.pop(context);
-                            },
-                            child: const Text('Fazer login'),
-                          ),
-                        ],
-                      ),
-                    ],
+                        // Link para login
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Text('Já tem conta? '),
+                            TextButton(
+                              onPressed: () {
+                                Navigator.pop(context);
+                              },
+                              child: const Text('Fazer login'),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
