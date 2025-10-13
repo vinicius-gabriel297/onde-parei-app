@@ -18,7 +18,7 @@
 - 📱 **Multiplataforma**: Android, iOS, Web, Windows, macOS e Linux
 
 ### 📱 Screenshots
-*(Adicione screenshots do seu app aqui após implementar)*
+
 
 ## 🛠️ Tecnologias Utilizadas
 
