@@ -10,6 +10,79 @@ import 'screens/auth/login_screen.dart';
 import 'screens/auth/signup_screen.dart';
 import 'screens/home/home_screen.dart';
 
+class ThemeProvider with ChangeNotifier {
+  bool _isDarkMode = false;
+
+  bool get isDarkMode => _isDarkMode;
+
+  ThemeMode get themeMode => _isDarkMode ? ThemeMode.dark : ThemeMode.light;
+
+  void setDarkMode(bool value) {
+    _isDarkMode = value;
+    notifyListeners();
+  }
+
+  ThemeData get lightTheme => ThemeData(
+    primarySwatch: Colors.blue,
+    useMaterial3: true,
+    brightness: Brightness.light,
+    appBarTheme: const AppBarTheme(
+      backgroundColor: Colors.blue,
+      foregroundColor: Colors.white,
+      elevation: 2,
+    ),
+    elevatedButtonTheme: ElevatedButtonThemeData(
+      style: ElevatedButton.styleFrom(
+        backgroundColor: Colors.blue,
+        foregroundColor: Colors.white,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+        ),
+      ),
+    ),
+    inputDecorationTheme: InputDecorationTheme(
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(8),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(8),
+        borderSide: const BorderSide(color: Colors.blue, width: 2),
+      ),
+    ),
+  );
+
+  ThemeData get darkTheme => ThemeData(
+    primarySwatch: Colors.blue,
+    useMaterial3: true,
+    brightness: Brightness.dark,
+    appBarTheme: AppBarTheme(
+      backgroundColor: Colors.grey[900],
+      foregroundColor: Colors.white,
+      elevation: 2,
+    ),
+    elevatedButtonTheme: ElevatedButtonThemeData(
+      style: ElevatedButton.styleFrom(
+        backgroundColor: Colors.blue[700],
+        foregroundColor: Colors.white,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+        ),
+      ),
+    ),
+    inputDecorationTheme: InputDecorationTheme(
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(8),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(8),
+        borderSide: const BorderSide(color: Colors.blue, width: 2),
+      ),
+    ),
+    cardColor: Colors.grey[800],
+    scaffoldBackgroundColor: Colors.grey[900],
+  );
+}
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
@@ -37,57 +110,39 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MultiProvider(
-      providers: [
-        Provider<AuthService>(
-          create: (_) => AuthService(),
-        ),
-        Provider<FirestoreService>(
-          create: (_) => FirestoreService(),
-        ),
-        Provider<ApiService>(
-          create: (_) => ApiService(),
-        ),
-        Provider<SettingsService>(
-          create: (_) => SettingsService(),
-        ),
-      ],
-      child: MaterialApp(
-        title: 'Onde Parei?',
-        debugShowCheckedModeBanner: false,
-        theme: ThemeData(
-          primarySwatch: Colors.blue,
-          useMaterial3: true,
-          appBarTheme: const AppBarTheme(
-            backgroundColor: Colors.blue,
-            foregroundColor: Colors.white,
-            elevation: 2,
-          ),
-          elevatedButtonTheme: ElevatedButtonThemeData(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.blue,
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
+    return ChangeNotifierProvider(
+      create: (_) => ThemeProvider(),
+      child: Consumer<ThemeProvider>(
+        builder: (context, themeProvider, child) =>
+          MultiProvider(
+            providers: [
+              Provider<AuthService>(
+                create: (_) => AuthService(),
               ),
+              Provider<FirestoreService>(
+                create: (_) => FirestoreService(),
+              ),
+              Provider<ApiService>(
+                create: (_) => ApiService(),
+              ),
+              Provider<SettingsService>(
+                create: (_) => SettingsService(),
+              ),
+            ],
+            child: MaterialApp(
+              title: 'Onde Parei?',
+              debugShowCheckedModeBanner: false,
+              theme: themeProvider.lightTheme,
+              darkTheme: themeProvider.darkTheme,
+              themeMode: themeProvider.themeMode,
+              home: const AuthWrapper(),
+              routes: {
+                '/login': (context) => const LoginScreen(),
+                '/signup': (context) => const SignupScreen(),
+                '/home': (context) => const HomeScreen(),
+              },
             ),
           ),
-          inputDecorationTheme: InputDecorationTheme(
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-              borderSide: const BorderSide(color: Colors.blue, width: 2),
-            ),
-          ),
-        ),
-        home: const AuthWrapper(),
-        routes: {
-          '/login': (context) => const LoginScreen(),
-          '/signup': (context) => const SignupScreen(),
-          '/home': (context) => const HomeScreen(),
-        },
       ),
     );
   }

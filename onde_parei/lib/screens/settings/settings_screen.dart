@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../main.dart'; // Importa ThemeProvider
 import '../../services/auth_service.dart';
 import '../../services/settings_service.dart';
 import '../../models/user_settings.dart';
@@ -78,14 +79,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
           _currentSettings = updatedSettings;
         });
 
+        // Aplicar tema se mudou
+        if (updatedSettings.isDarkMode != _currentSettings!.isDarkMode) {
+          final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
+          themeProvider.setDarkMode(updatedSettings.isDarkMode);
+        }
+
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Configurações salvas com sucesso!'),
             backgroundColor: Colors.green,
           ),
         );
-
-        // Tema será atualizado automaticamente pelo ChangeNotifier
       }
     } catch (e) {
       setState(() {
