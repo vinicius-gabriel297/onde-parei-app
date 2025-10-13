@@ -116,239 +116,268 @@ class _AddItemScreenState extends State<AddItemScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Adicionar Item'),
-        leading: IconButton(
-          icon: const Icon(Icons.close),
-          onPressed: () => Navigator.pop(context),
-        ),
-        actions: [
-          TextButton(
-            onPressed: _isLoading ? null : _saveItem,
-            child: _isLoading
-                ? const SizedBox(
-                    height: 20,
-                    width: 20,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                    ),
-                  )
-                : const Text('Salvar'),
+    // Aplicar tema claro para os campos de entrada
+    return Theme(
+      data: ThemeData(
+        inputDecorationTheme: InputDecorationTheme(
+          filled: true,
+          fillColor: Colors.white, // Fundo branco para contraste
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: const BorderSide(color: Colors.grey),
           ),
-        ],
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: const BorderSide(color: Color(0xFF8D6E63), width: 2), // Antique Brown
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: const BorderSide(color: Colors.grey),
+          ),
+          labelStyle: const TextStyle(color: Color(0xFF3E2723)), // Dark Brown
+          hintStyle: TextStyle(color: Color(0xFF8D6E63).withOpacity(0.7)), // Antique Brown claro
+        ),
+        scaffoldBackgroundColor: const Color(0xFFFFFBF7), // Warm Cream para fundo
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // Imagem (se disponível)
-              if (widget.searchResult?.imageUrl != null)
-                Container(
-                  height: 200,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(12),
-                    image: DecorationImage(
-                      image: NetworkImage(widget.searchResult!.imageUrl!),
-                      fit: BoxFit.cover,
-                      onError: (exception, stackTrace) {
-                        // Imagem não carregou, será tratada abaixo
+      child: Scaffold(
+        appBar: AppBar(
+          backgroundColor: const Color(0xFF8D6E63), // Antique Brown
+          foregroundColor: Colors.white,
+          title: const Text('Adicionar Item'),
+          leading: IconButton(
+            icon: const Icon(Icons.close, color: Colors.white),
+            onPressed: () => Navigator.pop(context),
+          ),
+          actions: [
+            TextButton(
+              onPressed: _isLoading ? null : _saveItem,
+              child: _isLoading
+                  ? const SizedBox(
+                      height: 20,
+                      width: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                      ),
+                    )
+                  : const Text(
+                      'Salvar',
+                      style: TextStyle(color: Colors.white),
+                    ),
+            ),
+          ],
+        ),
+        body: SingleChildScrollView(
+          padding: const EdgeInsets.all(16),
+          child: Form(
+            key: _formKey,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // Imagem (se disponível)
+                if (widget.searchResult?.imageUrl != null)
+                  Container(
+                    height: 200,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(12),
+                      image: DecorationImage(
+                        image: NetworkImage(widget.searchResult!.imageUrl!),
+                        fit: BoxFit.cover,
+                        onError: (exception, stackTrace) {
+                          // Imagem não carregou, será tratada abaixo
+                        },
+                      ),
+                    ),
+                  ),
+
+                const SizedBox(height: 24),
+
+                // Nome
+                TextFormField(
+                  controller: _nameController,
+                  decoration: const InputDecoration(
+                    labelText: 'Nome *',
+                    hintText: 'Nome do mangá ou livro',
+                  ),
+                  validator: (value) {
+                    if (value == null || value.trim().isEmpty) {
+                      return 'Campo obrigatório';
+                    }
+                    return null;
+                  },
+                ),
+
+                const SizedBox(height: 16),
+
+                // Autor
+                TextFormField(
+                  controller: _authorController,
+                  decoration: const InputDecoration(
+                    labelText: 'Autor',
+                    hintText: 'Nome do autor ou autores',
+                  ),
+                ),
+
+                const SizedBox(height: 16),
+
+                // Tipo
+                DropdownButtonFormField<ItemType>(
+                  value: _selectedType,
+                  decoration: const InputDecoration(
+                    labelText: 'Tipo *',
+                  ),
+                  items: const [
+                    DropdownMenuItem(
+                      value: ItemType.manga,
+                      child: Text('Mangá'),
+                    ),
+                    DropdownMenuItem(
+                      value: ItemType.book,
+                      child: Text('Livro'),
+                    ),
+                  ],
+                  onChanged: (value) {
+                    setState(() {
+                      _selectedType = value!;
+                    });
+                  },
+                ),
+
+                const SizedBox(height: 16),
+
+                // Status
+                DropdownButtonFormField<ReadingStatus>(
+                  value: _selectedStatus,
+                  decoration: const InputDecoration(
+                    labelText: 'Status *',
+                  ),
+                  items: const [
+                    DropdownMenuItem(
+                      value: ReadingStatus.wantToRead,
+                      child: Text('Pretendo ler'),
+                    ),
+                    DropdownMenuItem(
+                      value: ReadingStatus.reading,
+                      child: Text('Lendo'),
+                    ),
+                    DropdownMenuItem(
+                      value: ReadingStatus.read,
+                      child: Text('Lido'),
+                    ),
+                  ],
+                  onChanged: (value) {
+                    setState(() {
+                      _selectedStatus = value!;
+                    });
+                  },
+                ),
+
+                const SizedBox(height: 16),
+
+                // Capítulo atual (para mangás)
+                if (_selectedType == ItemType.manga)
+                  TextFormField(
+                    controller: _currentChapterController,
+                    decoration: const InputDecoration(
+                      labelText: 'Capítulo atual',
+                      hintText: 'Ex: 15',
+                    ),
+                    keyboardType: TextInputType.number,
+                  ),
+
+                // Página atual (para livros)
+                if (_selectedType == ItemType.book)
+                  TextFormField(
+                    controller: _currentPageController,
+                    decoration: const InputDecoration(
+                      labelText: 'Página atual',
+                      hintText: 'Ex: 150',
+                    ),
+                    keyboardType: TextInputType.number,
+                  ),
+
+                const SizedBox(height: 16),
+
+                // Avaliação
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Avaliação'),
+                    const SizedBox(height: 8),
+                    RatingBar.builder(
+                      initialRating: _rating,
+                      minRating: 0,
+                      direction: Axis.horizontal,
+                      allowHalfRating: true,
+                      itemCount: 5,
+                      itemSize: 40,
+                      itemBuilder: (context, _) => const Icon(
+                        Icons.star,
+                        color: Colors.amber,
+                      ),
+                      onRatingUpdate: (rating) {
+                        setState(() {
+                          _rating = rating;
+                        });
                       },
                     ),
-                  ),
+                  ],
                 ),
 
-              const SizedBox(height: 24),
+                const SizedBox(height: 16),
 
-              // Nome
-              TextFormField(
-                controller: _nameController,
-                decoration: const InputDecoration(
-                  labelText: 'Nome *',
-                  hintText: 'Nome do mangá ou livro',
-                ),
-                validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
-                    return 'Campo obrigatório';
-                  }
-                  return null;
-                },
-              ),
-
-              const SizedBox(height: 16),
-
-              // Autor
-              TextFormField(
-                controller: _authorController,
-                decoration: const InputDecoration(
-                  labelText: 'Autor',
-                  hintText: 'Nome do autor ou autores',
-                ),
-              ),
-
-              const SizedBox(height: 16),
-
-              // Tipo
-              DropdownButtonFormField<ItemType>(
-                value: _selectedType,
-                decoration: const InputDecoration(
-                  labelText: 'Tipo *',
-                ),
-                items: const [
-                  DropdownMenuItem(
-                    value: ItemType.manga,
-                    child: Text('Mangá'),
-                  ),
-                  DropdownMenuItem(
-                    value: ItemType.book,
-                    child: Text('Livro'),
-                  ),
-                ],
-                onChanged: (value) {
-                  setState(() {
-                    _selectedType = value!;
-                  });
-                },
-              ),
-
-              const SizedBox(height: 16),
-
-              // Status
-              DropdownButtonFormField<ReadingStatus>(
-                value: _selectedStatus,
-                decoration: const InputDecoration(
-                  labelText: 'Status *',
-                ),
-                items: const [
-                  DropdownMenuItem(
-                    value: ReadingStatus.wantToRead,
-                    child: Text('Pretendo ler'),
-                  ),
-                  DropdownMenuItem(
-                    value: ReadingStatus.reading,
-                    child: Text('Lendo'),
-                  ),
-                  DropdownMenuItem(
-                    value: ReadingStatus.read,
-                    child: Text('Lido'),
-                  ),
-                ],
-                onChanged: (value) {
-                  setState(() {
-                    _selectedStatus = value!;
-                  });
-                },
-              ),
-
-              const SizedBox(height: 16),
-
-              // Capítulo atual (para mangás)
-              if (_selectedType == ItemType.manga)
+                // Descrição
                 TextFormField(
-                  controller: _currentChapterController,
+                  controller: _descriptionController,
                   decoration: const InputDecoration(
-                    labelText: 'Capítulo atual',
-                    hintText: 'Ex: 15',
+                    labelText: 'Descrição',
+                    hintText: 'Sinopse ou observações pessoais',
                   ),
-                  keyboardType: TextInputType.number,
+                  maxLines: 3,
                 ),
 
-              // Página atual (para livros)
-              if (_selectedType == ItemType.book)
-                TextFormField(
-                  controller: _currentPageController,
-                  decoration: const InputDecoration(
-                    labelText: 'Página atual',
-                    hintText: 'Ex: 150',
-                  ),
-                  keyboardType: TextInputType.number,
-                ),
+                const SizedBox(height: 24),
 
-              const SizedBox(height: 16),
-
-              // Avaliação
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text('Avaliação'),
-                  const SizedBox(height: 8),
-                  RatingBar.builder(
-                    initialRating: _rating,
-                    minRating: 0,
-                    direction: Axis.horizontal,
-                    allowHalfRating: true,
-                    itemCount: 5,
-                    itemSize: 40,
-                    itemBuilder: (context, _) => const Icon(
-                      Icons.star,
-                      color: Colors.amber,
+                // Mensagem de erro
+                if (_errorMessage != null)
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.red.shade50,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.red.shade200),
                     ),
-                    onRatingUpdate: (rating) {
-                      setState(() {
-                        _rating = rating;
-                      });
-                    },
+                    child: Text(
+                      _errorMessage!,
+                      style: TextStyle(color: Colors.red.shade700),
+                      textAlign: TextAlign.center,
+                    ),
                   ),
-                ],
-              ),
 
-              const SizedBox(height: 16),
+                const SizedBox(height: 16),
 
-              // Descrição
-              TextFormField(
-                controller: _descriptionController,
-                decoration: const InputDecoration(
-                  labelText: 'Descrição',
-                  hintText: 'Sinopse ou observações pessoais',
-                ),
-                maxLines: 3,
-              ),
-
-              const SizedBox(height: 24),
-
-              // Mensagem de erro
-              if (_errorMessage != null)
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.red.shade50,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.red.shade200),
+                // Botão salvar
+                ElevatedButton(
+                  onPressed: _isLoading ? null : _saveItem,
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 16),
                   ),
-                  child: Text(
-                    _errorMessage!,
-                    style: TextStyle(color: Colors.red.shade700),
-                    textAlign: TextAlign.center,
-                  ),
-                ),
-
-              const SizedBox(height: 16),
-
-              // Botão salvar
-              ElevatedButton(
-                onPressed: _isLoading ? null : _saveItem,
-                style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                ),
-                child: _isLoading
-                    ? const SizedBox(
-                        height: 20,
-                        width: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                  child: _isLoading
+                      ? const SizedBox(
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                          ),
+                        )
+                      : const Text(
+                          'Salvar Item',
+                          style: TextStyle(fontSize: 16),
                         ),
-                      )
-                    : const Text(
-                        'Salvar Item',
-                        style: TextStyle(fontSize: 16),
-                      ),
-              ),
-            ],
+                ),
+              ],
+            ),
           ),
         ),
       ),
