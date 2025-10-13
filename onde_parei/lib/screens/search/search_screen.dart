@@ -13,13 +13,27 @@ class SearchScreen extends StatefulWidget {
 class _SearchScreenState extends State<SearchScreen> {
   final TextEditingController _searchController = TextEditingController();
   List<SearchResult> _searchResults = [];
+  List<SearchResult> _filteredResults = [];
   bool _isLoading = false;
   String? _errorMessage;
+  String _selectedTypeFilter = 'todos'; // 'todos', 'manga', 'book'
 
   @override
   void dispose() {
     _searchController.dispose();
     super.dispose();
+  }
+
+  void _filterResults() {
+    setState(() {
+      if (_selectedTypeFilter == 'todos') {
+        _filteredResults = _searchResults;
+      } else {
+        _filteredResults = _searchResults
+            .where((result) => result.type == _selectedTypeFilter)
+            .toList();
+      }
+    });
   }
 
   Future<void> _search() async {
@@ -42,6 +56,8 @@ class _SearchScreenState extends State<SearchScreen> {
 
       setState(() {
         _searchResults = results;
+        _filteredResults = results; // Initialize filtered results
+        _filterResults(); // Apply current filter
         _isLoading = false;
       });
     } catch (e) {
@@ -73,6 +89,44 @@ class _SearchScreenState extends State<SearchScreen> {
           icon: const Icon(Icons.arrow_back),
           onPressed: () => Navigator.pop(context),
         ),
+        actions: [
+          // Filtro de tipo
+          PopupMenuButton<String>(
+            onSelected: (value) {
+              setState(() {
+                _selectedTypeFilter = value;
+                _filterResults();
+              });
+            },
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Row(
+                children: [
+                  Text(
+                    _selectedTypeFilter == 'todos' ? 'Todos' :
+                    _selectedTypeFilter == 'manga' ? 'Mangás' : 'Livros',
+                    style: const TextStyle(fontSize: 14),
+                  ),
+                  const Icon(Icons.arrow_drop_down),
+                ],
+              ),
+            ),
+            itemBuilder: (context) => [
+              const PopupMenuItem(
+                value: 'todos',
+                child: Text('Todos'),
+              ),
+              const PopupMenuItem(
+                value: 'manga',
+                child: Text('Mangás'),
+              ),
+              const PopupMenuItem(
+                value: 'book',
+                child: Text('Livros'),
+              ),
+            ],
+          ),
+        ],
       ),
       body: Column(
         children: [
@@ -160,9 +214,9 @@ class _SearchScreenState extends State<SearchScreen> {
                   )
                 : ListView.builder(
                     padding: const EdgeInsets.all(16),
-                    itemCount: _searchResults.length,
+                    itemCount: _filteredResults.length,
                     itemBuilder: (context, index) {
-                      final result = _searchResults[index];
+                      final result = _filteredResults[index];
                       return _SearchResultCard(
                         result: result,
                         onTap: () {
