@@ -45,6 +45,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
     return Scaffold(
       appBar: AppBar(
+        backgroundColor: const Color(0xFF8D6E63), // Antique Brown - mesma cor do FAB
+        foregroundColor: Colors.white, // Texto branco para contraste
         title: Row(
           children: [
             const Icon(
@@ -57,7 +59,7 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.settings),
+            icon: const Icon(Icons.settings, color: Colors.white),
             onPressed: () {
               Navigator.push(
                 context,
@@ -67,7 +69,7 @@ class _HomeScreenState extends State<HomeScreen> {
             tooltip: 'Configurações',
           ),
           IconButton(
-            icon: const Icon(Icons.logout),
+            icon: const Icon(Icons.logout, color: Colors.white),
             onPressed: () async {
               await authService.signOut();
             },
