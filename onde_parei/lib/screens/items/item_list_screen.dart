@@ -172,13 +172,7 @@ class _ItemListScreenState extends State<ItemListScreen> {
           );
         },
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          // TODO: Navegar para tela de busca
-        },
-        tooltip: 'Adicionar item',
-        child: const Icon(Icons.add),
-      ),
+      // Removed floating action button since we have the "Meus Itens" view
     );
   }
 
