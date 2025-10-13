@@ -68,13 +68,6 @@ class _HomeScreenState extends State<HomeScreen> {
             },
             tooltip: 'Configurações',
           ),
-          IconButton(
-            icon: const Icon(Icons.logout, color: Colors.white),
-            onPressed: () async {
-              await authService.signOut();
-            },
-            tooltip: 'Sair',
-          ),
         ],
       ),
       body: Column(
