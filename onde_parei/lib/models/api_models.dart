@@ -122,6 +122,63 @@ class GoogleBooksResponse {
   }
 }
 
+// Modelos para MangaDex API (Manhwa/Manhua)
+class MangaDexManga {
+  final String id;
+  final Map<String, String> title;
+  final Map<String, String>? description;
+  final String? coverUrl;
+  final List<Map<String, String>>? authors;
+  final String? contentRating;
+  final String? status;
+  final String? publicationDemographic;
+  final List<String>? tags;
+
+  MangaDexManga({
+    required this.id,
+    required this.title,
+    this.description,
+    this.coverUrl,
+    this.authors,
+    this.contentRating,
+    this.status,
+    this.publicationDemographic,
+    this.tags,
+  });
+
+  factory MangaDexManga.fromJson(Map<String, dynamic> json) {
+    return MangaDexManga(
+      id: json['id'] ?? '',
+      title: (json['attributes']?['title'] as Map<String, dynamic>?)?.cast<String, String>() ?? {},
+      description: (json['attributes']?['description'] as Map<String, dynamic>?)?.cast<String, String>(),
+      contentRating: json['attributes']?['contentRating'],
+      status: json['attributes']?['status'],
+      publicationDemographic: json['attributes']?['publicationDemographic'],
+      tags: json['attributes']?['tags']?.map<String>((tag) => tag['attributes']['name']['en'] as String).toList(),
+      // Authors e cover serão populados posteriormente se necessário
+    );
+  }
+
+  String getTitle() => title['en'] ?? title.entries.first.value;
+  String? getDescription() => description?['en'] ?? description?.entries.first.value;
+}
+
+class MangaDexResponse {
+  final List<MangaDexManga> data;
+  final int total;
+
+  MangaDexResponse({required this.data, required this.total});
+
+  factory MangaDexResponse.fromJson(Map<String, dynamic> json) {
+    return MangaDexResponse(
+      data: (json['data'] as List<dynamic>?)
+          ?.map((item) => MangaDexManga.fromJson(item))
+          .toList() ?? [],
+      total: json['total'] ?? 0,
+    );
+  }
+}
+
 // Modelo para busca unificada
 class SearchResult {
   final String id;
@@ -129,7 +186,7 @@ class SearchResult {
   final String? imageUrl;
   final String? description;
   final List<String>? authors;
-  final String type; // 'manga' ou 'book'
+  final String type; // 'manga', 'manhwa', 'book'
   final Map<String, dynamic>? rawData;
 
   SearchResult({
@@ -181,6 +238,26 @@ class SearchResult {
         'pageCount': book.pageCount,
         'language': book.language,
         'isbn': book.isbn,
+      },
+    );
+  }
+
+  factory SearchResult.fromMangaDex(MangaDexManga manhwa) {
+    return SearchResult(
+      id: manhwa.id,
+      title: manhwa.getTitle(),
+      imageUrl: manhwa.coverUrl,
+      description: manhwa.getDescription(),
+      authors: manhwa.authors?.map((author) => author['name'] ?? 'Desconhecido').toList(),
+      type: 'manhwa', // or 'manhua' based on tags/demographic
+      rawData: {
+        'id': manhwa.id,
+        'title': manhwa.title,
+        'description': manhwa.description,
+        'contentRating': manhwa.contentRating,
+        'status': manhwa.status,
+        'publicationDemographic': manhwa.publicationDemographic,
+        'tags': manhwa.tags,
       },
     );
   }
