@@ -1,265 +1,208 @@
-# 📚 Onde Parei?
+# Onde Parei? 📚
 
-**"Onde Parei?"** é um aplicativo Flutter moderno para gerenciar sua leitura de **mangás e livros**. Construído com Firebase, oferece uma experiência completa de tracking de leitura com integração com APIs externas para descobrir novos títulos.
+Aplicativo Flutter para rastrear mangás e livros favoritos, permitindo salvar onde você parou a leitura.
 
-![Flutter](https://img.shields.io/badge/Flutter-02569B?style=for-the-badge&logo=flutter&logoColor=white)
-![Firebase](https://img.shields.io/badge/Firebase-039BE5?style=for-the-badge&logo=Firebase&logoColor=white)
-![Dart](https://img.shields.io/badge/Dart-0175C2?style=for-the-badge&logo=dart&logoColor=white)
+## Funcionalidades
 
-## 🚀 Funcionalidades
+- ✅ Autenticação de usuário (cadastro/login)
+- ✅ Busca de mangás e livros através de APIs gratuitas
+- ✅ Adicionar itens manualmente
+- ✅ Rastrear progresso de leitura (capítulo atual/página atual)
+- ✅ Sistema de status (Lendo, Lido, Pretendo Ler)
+- ✅ Sistema de avaliação (estrelas)
+- ✅ Banco de dados Firebase para armazenamento
+- ✅ Interface responsiva e intuitiva
 
-### ✨ Principais Features
-- 🔐 **Autenticação Seguro**: Login e cadastro com Firebase Auth
-- 📖 **Biblioteca Pessoal**: Organize seus mangás e livros favoritados
-- 🔍 **Busca Inteligente**: Integração com Jikan API (mangás) e Google Books API
-- 📊 **Dashboard Estatístico**: Acompanhe seus progressos de leitura
-- 🎨 **Interface Moderna**: Material Design 3 com dark/light mode
-- ☁️ **Sincronização na Nuvem**: Dados salvos no Firebase Firestore
-- 📱 **Multiplataforma**: Android, iOS, Web, Windows, macOS e Linux
+## APIs Utilizadas
 
-### 📱 Screenshots
-*(Adicione screenshots do seu app aqui após implementar)*
+- **Jikan API** (https://jikan.moe/) - Para busca de mangás
+- **Open Library Search API** (https://openlibrary.org/dev/docs/api/search) - Para busca de livros
+- **Firebase** - Para autenticação e banco de dados
 
-## 🛠️ Tecnologias Utilizadas
+## Configuração do Projeto
 
-### Frontend
-- **Flutter** - Framework principal
-- **Dart** - Linguagem de programação
-- **Provider** - Gerenciamento de estado
-- **Material Design 3** - UI moderna
+### 1. Pré-requisitos
 
-### Backend & Banco
-- **Firebase Authentication** - Autenticação de usuários
-- **Cloud Firestore** - Banco de dados NoSQL
-- **SharedPreferences** - Configurações locais
+- Flutter SDK instalado
+- Conta no Firebase
+- Android Studio ou VS Code
 
-### APIs Integradas
-- **Jikan API** - Dados de mangás/animes
-- **Google Books API** - Catálogo de livros
+### 2. Configuração do Firebase
 
-### Pacotes Flutter
-```yaml
-dependencies:
-  flutter:
-    sdk: flutter
+#### Método Automático (Recomendado):
 
-  # Firebase
-  firebase_core: ^3.6.0
-  firebase_auth: ^5.3.1
-  cloud_firestore: ^5.5.0
+```bash
+# 1. Instalar Firebase CLI
+npm install -g firebase-tools
 
-  # HTTP e APIs
-  http: ^1.2.2
+# 2. Fazer login no Firebase
+firebase login
 
-  # UI e UX
-  cached_network_image: ^3.4.1
-  flutter_rating_bar: ^4.0.1
-  flutter_typeahead: ^5.1.2
-
-  # Gerenciamento de Estado
-  provider: ^6.1.2
-
-  # Utilitários
-  shared_preferences: ^2.2.3
-  google_fonts: ^6.2.1
+# 3. Configurar o projeto Flutter com Firebase
+flutter pub global activate flutterfire_cli
+flutter pub global run flutterfire_cli configure --project=onde-parei-app
 ```
 
-## 📦 Instalação
+#### Método Manual:
 
-### Pré-requisitos
-- [Flutter SDK](https://flutter.dev/docs/get-started/install) (versão 3.8.1 ou superior)
-- [Dart SDK](https://dart.dev/get-dart) (incluído com Flutter)
-- [Git](https://git-scm.com/)
-- Conta no [Firebase](https://console.firebase.google.com/)
+1. **Criar projeto no Firebase:**
+   - Vá para [Firebase Console](https://console.firebase.google.com/)
+   - Clique em "Criar projeto" (ex: "onde-parei-app")
+   - Aguarde a criação
 
-### Passos de Instalação
+2. **Ativar serviços:**
+   - No menu lateral, vá em "Authentication"
+   - Clique em "Começar"
+   - Vá na aba "Método de login"
+   - Ative "Email/Senha"
+   - Clique em "Salvar"
 
-1. **Clone o repositório:**
+   - No menu lateral, vá em "Firestore Database"
+   - Clique em "Criar banco de dados"
+   - Selecione "Modo de produção"
+   - Clique em "Próximo" e depois "Concluir"
+
+3. **Adicionar app Android:**
+   - No projeto Firebase, clique em "Adicionar app" (ícone Android)
+   - Nome do pacote: `com.example.onde_parei`
+   - Clique em "Registrar app"
+   - Baixe o arquivo `google-services.json`
+   - Mova para: `onde_parei/android/app/google-services.json`
+
+4. **Adicionar app iOS:**
+   - No projeto Firebase, clique em "Adicionar app" (ícone iOS)
+   - Bundle ID: `com.example.ondeParei`
+   - Clique em "Registrar app"
+   - Baixe o arquivo `GoogleService-Info.plist`
+   - Mova para: `onde_parei/ios/Runner/GoogleService-Info.plist`
+
+5. **Configurar credenciais:**
+   - No Firebase Console, vá em "Configurações do projeto" (engrenagem)
+   - Vá na aba "Seus apps"
+   - Clique no ícone do Android/iOS
+   - Copie as credenciais (apiKey, appId, etc.)
+   - Cole no arquivo `lib/firebase_options.dart`
+
+### 3. Configuração das dependências
+
 ```bash
-git clone https://github.com/SEU_USERNAME/onde-parei-app.git
-cd onde-parei-app/onde_parei
-```
-
-2. **Instale as dependências:**
-```bash
+cd onde_parei
 flutter pub get
 ```
 
-3. **Configure o Firebase:**
+### 4. Executar o aplicativo
 
-   a. Crie um projeto no [Firebase Console](https://console.firebase.google.com/)
-
-   b. Ative Authentication e Firestore Database
-
-   c. Configure as regras de segurança do Firestore:
-   ```javascript
-   rules_version = '2';
-   service cloud.firestore {
-     match /databases/{database}/documents {
-       match /items/{itemId} {
-         allow read, write: if request.auth != null &&
-           request.auth.uid == resource.data.userId;
-       }
-
-       match /items {
-         allow read, write: if request.auth != null;
-       }
-     }
-   }
-   ```
-
-   d. Configure o Firebase CLI:
-   ```bash
-   firebase login
-   ```
-
-   e. Deploy as regras:
-   ```bash
-   firebase deploy --only firestore:rules
-   ```
-
-4. **Execute o app:**
 ```bash
-# Para Android/iOS conectados:
 flutter run
-
-# Para web:
-flutter run -d chrome
-
-# Para desktop:
-flutter run -d windows
 ```
 
-## 🚀 Como Usar
+#### ⚠️ Se der erro de configuração do Firebase:
 
-### Primeiro Uso
-1. **Abra o app** → Tela de login aparecerá automaticamente
-2. **Cadastre-se** com email e senha
-3. **Configure preferências** nas configurações (opcional)
+O arquivo `lib/firebase_options.dart` já está configurado com valores de exemplo. Você precisa substituí-los pelas suas credenciais reais do Firebase Console.
 
-### Adicionando Itens
-1. **Toque no botão "+"** (flutuante)
-2. **Pesquise** por mangás ou livros
-3. **Selecione o item** desejado
-4. **Preencha os detalhes** (capítulo atual, avaliação, etc.)
-
-### Navegação
-- **🏠 Início**: Dashboard com estatísticas e itens recentes
-- **📋 Meus Itens**: Lista completa da sua biblioteca
-- **⚙️ Configurações**: Preferências do usuário
-
-## 🏗️ Estrutura do Projeto
-
-```
-onde_parei/
-├── lib/
-│   ├── main.dart                 # Ponto de entrada da aplicação
-│   ├── firebase_options.dart     # Configuração Firebase
-│   ├── models/
-│   │   ├── item_model.dart       # Modelo de dados dos itens
-│   │   ├── user_settings.dart    # Configurações do usuário
-│   │   └── api_models.dart       # Modelos das APIs externas
-│   ├── screens/
-│   │   ├── auth/
-│   │   │   ├── login_screen.dart
-│   │   │   └── signup_screen.dart
-│   │   ├── home/
-│   │   │   └── home_screen.dart
-│   │   ├── search/
-│   │   │   └── search_screen.dart
-│   │   └── settings/
-│   │       └── settings_screen.dart
-│   ├── services/
-│   │   ├── auth_service.dart     # Autenticação Firebase
-│   │   ├── firestore_service.dart # Banco de dados
-│   │   ├── api_service.dart      # APIs externas
-│   │   └── settings_service.dart # Configurações locais
-│   └── widgets/                  # Widgets compartilhados
-├── android/                      # Configurações Android
-├── ios/                         # Configurações iOS
-├── web/                         # Configurações Web
-├── windows/                     # Configurações Windows
-├── macos/                       # Configurações macOS
-├── linux/                       # Configurações Linux
-├── test/                        # Testes unitários
-├── pubspec.yaml                 # Dependências Flutter
-├── firebase.json                # Configuração Firebase
-└── README.md                    # Este arquivo
+**Procure por estas linhas e substitua:**
+```dart
+apiKey: 'YOUR_API_KEY', // ← Substitua pela sua chave
+appId: 'YOUR_APP_ID',   // ← Substitua pelo seu ID
+// ... etc
 ```
 
-## 🔧 Configuração de Desenvolvimento
+### 5. Executar o aplicativo
 
-### Debug
 ```bash
-flutter run --debug
+flutter run
 ```
 
-### Release Build
-```bash
-# Android APK
-flutter build apk --release
+## Estrutura do Projeto
 
-# iOS
-flutter build ios --release
-
-# Web
-flutter build web --release
+```
+lib/
+├── models/
+│   └── reading_item.dart          # Modelo de dados para mangás/livros
+├── services/
+│   ├── auth_service.dart          # Serviço de autenticação
+│   ├── database_service.dart      # Serviço do banco de dados
+│   └── api_service.dart           # Serviço das APIs externas
+├── providers/
+│   ├── auth_provider.dart         # Provider de autenticação
+│   └── reading_provider.dart      # Provider de leitura
+├── screens/
+│   ├── login_screen.dart          # Tela de login/cadastro
+│   ├── home_screen.dart           # Tela principal
+│   ├── search_screen.dart         # Tela de busca
+│   ├── add_item_screen.dart       # Tela de adicionar/editar
+│   └── item_detail_screen.dart    # Tela de detalhes do item
+└── main.dart                      # Arquivo principal
 ```
 
-### Testes
-```bash
-flutter test
-```
+## Funcionalidades Detalhadas
 
-### Análise de Código
-```bash
-flutter analyze
-```
+### Tela de Login/Cadastro
+- Login com email e senha
+- Cadastro de novos usuários
+- Recuperação de senha
+- Validação de formulários
 
-## 🎯 Status do Projeto
+### Tela Principal
+- Lista de itens organizados por status
+- Filtros por status (Todos, Lendo, Lido, Pretendo Ler)
+- Busca rápida
+- Adicionar novos itens
 
-- ✅ **Autenticação**: Firebase Auth implementado
-- ✅ **Interface**: Todas as telas desenvolvidas
-- ✅ **APIs**: Integração com Jikan e Google Books
-- ✅ **Banco de Dados**: Firestore configurado
-- ✅ **Estado**: Gerenciamento com Provider
-- ✅ **Nuvem**: Deploy das regras necessário
-- 🔄 **Funcionalidades**: Completas e testáveis
+### Tela de Busca
+- Busca de mangás através da Jikan API
+- Busca de livros através da Open Library API
+- Alternância entre mangá e livro
+- Adicionar itens encontrados à biblioteca pessoal
 
-## 🤝 Contribuições
+### Tela de Detalhes
+- Visualização completa do item
+- Atualização rápida de progresso
+- Edição de informações
+- Exclusão de itens
+- Visualização de progresso com barra
 
-Contribuições são bem-vindas! 🎉
+### Tela de Adicionar/Editar
+- Formulário completo para adicionar itens
+- Suporte para itens de API ou manuais
+- Seleção de tipo (mangá/livro)
+- Definição de status
+- Sistema de avaliação
+- Campos opcionais (autor, descrição, etc.)
 
-### Como contribuir:
+## Tecnologias Utilizadas
+
+- **Flutter** - Framework para desenvolvimento mobile
+- **Dart** - Linguagem de programação
+- **Firebase Auth** - Autenticação de usuários
+- **Cloud Firestore** - Banco de dados NoSQL
+- **Provider** - Gerenciamento de estado
+- **HTTP** - Requisições para APIs externas
+- **Cached Network Image** - Cache de imagens
+- **Flutter Rating Bar** - Sistema de avaliação
+
+## Próximas Funcionalidades
+
+- [ ] Sincronização offline
+- [ ] Notificações push
+- [ ] Backup e exportação de dados
+- [ ] Estatísticas de leitura
+- [ ] Compartilhamento de progresso
+- [ ] Modo escuro
+- [ ] Suporte a múltiplos idiomas
+
+## Contribuição
+
 1. Fork o projeto
-2. Crie uma branch (`git checkout -b feature/nova-feature`)
-3. Commit suas mudanças (`git commit -m 'Adiciona nova feature'`)
-4. Push para a branch (`git push origin feature/nova-feature`)
+2. Crie uma branch para sua feature (`git checkout -b feature/AmazingFeature`)
+3. Commit suas mudanças (`git commit -m 'Add some AmazingFeature'`)
+4. Push para a branch (`git push origin feature/AmazingFeature`)
 5. Abra um Pull Request
 
-### Diretrizes:
-- Siga a convenção de commits
-- Mantenha o código limpo
-- Adicione testes para novas funcionalidades
-- Atualize a documentação quando necessário
+## Licença
 
-## 📄 Licença
+Este projeto está sob a licença MIT. Veja o arquivo `LICENSE` para mais detalhes.
 
-Este projeto está sob a licença MIT. Veja o arquivo [LICENSE](LICENSE) para mais detalhes.
+## Suporte
 
-## 👨‍💻 Autor
-
-**Vinícius**
-- GitHub: [@seu-github](https://github.com/seu-github)
-- LinkedIn: [Seu LinkedIn]
-- E-mail: seu-email@example.com
-
----
-
-⭐ **Gostou do projeto? Dê um star no GitHub!**
-
-📱 **Disponível para**: Android | iOS | Web | Windows | macOS | Linux
-
----
-
-*Desenvolvido com ❤️ em Flutter para amantes de leitura*
+Para suporte, abra uma issue no GitHub ou entre em contato através do email: suporte@ondeparei.com
