@@ -9,10 +9,7 @@ import '../../models/api_models.dart';
 class AddItemScreen extends StatefulWidget {
   final SearchResult? searchResult;
 
-  const AddItemScreen({
-    super.key,
-    this.searchResult,
-  });
+  const AddItemScreen({super.key, this.searchResult});
 
   @override
   State<AddItemScreen> createState() => _AddItemScreenState();
@@ -31,19 +28,43 @@ class _AddItemScreenState extends State<AddItemScreen> {
   double _rating = 0.0;
   bool _isLoading = false;
   String? _errorMessage;
+  final bool _isMetadataReadOnly = true;
+  String? _publishedDate;
+  List<String> _genres = [];
+  bool _isDescriptionExpanded = false;
 
   @override
   void initState() {
     super.initState();
     if (widget.searchResult != null) {
       _nameController.text = widget.searchResult!.title;
-      if (widget.searchResult!.authors != null && widget.searchResult!.authors!.isNotEmpty) {
+      if (widget.searchResult!.authors != null &&
+          widget.searchResult!.authors!.isNotEmpty) {
         _authorController.text = widget.searchResult!.authors!.first;
       }
       if (widget.searchResult!.description != null) {
         _descriptionController.text = widget.searchResult!.description!;
       }
-      _selectedType = widget.searchResult!.type == 'manga' ? ItemType.manga : ItemType.book;
+      _selectedType = widget.searchResult!.type == 'manga'
+          ? ItemType.manga
+          : ItemType.book;
+
+      final rawData = widget.searchResult!.rawData;
+      if (rawData != null) {
+        final rawPublishedDate = rawData['publishedDate'];
+        if (rawPublishedDate != null) {
+          _publishedDate = rawPublishedDate.toString();
+        }
+
+        final rawGenres = rawData['genres'] ?? rawData['tags'];
+        if (rawGenres is List) {
+          _genres = rawGenres
+              .map((e) => e.toString())
+              .where((e) => e.trim().isNotEmpty)
+              .take(4)
+              .toList();
+        }
+      }
     }
   }
 
@@ -58,6 +79,13 @@ class _AddItemScreenState extends State<AddItemScreen> {
   }
 
   Future<void> _saveItem() async {
+    if (_nameController.text.trim().isEmpty) {
+      setState(() {
+        _errorMessage = 'Nome do item é obrigatório';
+      });
+      return;
+    }
+
     if (!_formKey.currentState!.validate()) return;
 
     setState(() {
@@ -67,7 +95,10 @@ class _AddItemScreenState extends State<AddItemScreen> {
 
     try {
       final authService = Provider.of<AuthService>(context, listen: false);
-      final firestoreService = Provider.of<FirestoreService>(context, listen: false);
+      final firestoreService = Provider.of<FirestoreService>(
+        context,
+        listen: false,
+      );
 
       final user = authService.currentUser;
       if (user == null) {
@@ -90,6 +121,8 @@ class _AddItemScreenState extends State<AddItemScreen> {
         author: _authorController.text.trim().isNotEmpty
             ? _authorController.text.trim()
             : null,
+        publishedDate: _publishedDate,
+        genres: _genres.isNotEmpty ? _genres : null,
         createdAt: DateTime.now(),
         updatedAt: DateTime.now(),
       );
@@ -128,16 +161,23 @@ class _AddItemScreenState extends State<AddItemScreen> {
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
-            borderSide: const BorderSide(color: Color(0xFF8D6E63), width: 2), // Antique Brown
+            borderSide: const BorderSide(
+              color: Color(0xFF8D6E63),
+              width: 2,
+            ), // Antique Brown
           ),
           enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
             borderSide: const BorderSide(color: Colors.grey),
           ),
           labelStyle: const TextStyle(color: Color(0xFF3E2723)), // Dark Brown
-          hintStyle: TextStyle(color: Color(0xFF8D6E63).withOpacity(0.7)), // Antique Brown claro
+          hintStyle: TextStyle(
+            color: Color(0xFF8D6E63).withOpacity(0.7),
+          ), // Antique Brown claro
         ),
-        scaffoldBackgroundColor: const Color(0xFFFFFBF7), // Warm Cream para fundo
+        scaffoldBackgroundColor: const Color(
+          0xFFFFFBF7,
+        ), // Warm Cream para fundo
       ),
       child: Scaffold(
         appBar: AppBar(
@@ -160,10 +200,7 @@ class _AddItemScreenState extends State<AddItemScreen> {
                         valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                       ),
                     )
-                  : const Text(
-                      'Salvar',
-                      style: TextStyle(color: Colors.white),
-                    ),
+                  : const Text('Salvar', style: TextStyle(color: Colors.white)),
             ),
           ],
         ),
@@ -174,58 +211,28 @@ class _AddItemScreenState extends State<AddItemScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // Imagem (se disponível)
-                if (widget.searchResult?.imageUrl != null)
-                  Container(
-                    height: 200,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(12),
-                      image: DecorationImage(
-                        image: NetworkImage(widget.searchResult!.imageUrl!),
-                        fit: BoxFit.cover,
-                        onError: (exception, stackTrace) {
-                          // Imagem não carregou, será tratada abaixo
-                        },
-                      ),
-                    ),
+                _buildMetadataHeader(widget.searchResult?.imageUrl),
+
+                const SizedBox(height: 12),
+
+                if (_publishedDate != null && _publishedDate!.trim().isNotEmpty)
+                  _buildInfoRow(Icons.event, 'Publicação: $_publishedDate'),
+
+                if (_genres.isNotEmpty)
+                  _buildInfoRow(
+                    Icons.category,
+                    'Gêneros: ${_genres.join(' • ')}',
                   ),
+
+                if (_descriptionController.text.trim().isNotEmpty)
+                  _buildDescriptionBlock(_descriptionController.text.trim()),
 
                 const SizedBox(height: 24),
-
-                // Nome
-                TextFormField(
-                  controller: _nameController,
-                  decoration: const InputDecoration(
-                    labelText: 'Nome *',
-                    hintText: 'Nome do mangá ou livro',
-                  ),
-                  validator: (value) {
-                    if (value == null || value.trim().isEmpty) {
-                      return 'Campo obrigatório';
-                    }
-                    return null;
-                  },
-                ),
-
-                const SizedBox(height: 16),
-
-                // Autor
-                TextFormField(
-                  controller: _authorController,
-                  decoration: const InputDecoration(
-                    labelText: 'Autor',
-                    hintText: 'Nome do autor ou autores',
-                  ),
-                ),
-
-                const SizedBox(height: 16),
 
                 // Tipo
                 DropdownButtonFormField<ItemType>(
                   value: _selectedType,
-                  decoration: const InputDecoration(
-                    labelText: 'Tipo *',
-                  ),
+                  decoration: const InputDecoration(labelText: 'Tipo *'),
                   items: const [
                     DropdownMenuItem(
                       value: ItemType.manga,
@@ -237,8 +244,9 @@ class _AddItemScreenState extends State<AddItemScreen> {
                     ),
                   ],
                   onChanged: (value) {
+                    if (value == null) return;
                     setState(() {
-                      _selectedType = value!;
+                      _selectedType = value;
                     });
                   },
                 ),
@@ -248,9 +256,7 @@ class _AddItemScreenState extends State<AddItemScreen> {
                 // Status
                 DropdownButtonFormField<ReadingStatus>(
                   value: _selectedStatus,
-                  decoration: const InputDecoration(
-                    labelText: 'Status *',
-                  ),
+                  decoration: const InputDecoration(labelText: 'Status *'),
                   items: const [
                     DropdownMenuItem(
                       value: ReadingStatus.wantToRead,
@@ -285,8 +291,9 @@ class _AddItemScreenState extends State<AddItemScreen> {
                     keyboardType: TextInputType.number,
                   ),
 
-                // Página atual (para livros)
-                if (_selectedType == ItemType.book)
+                // Página atual (para livros em andamento)
+                if (_selectedType == ItemType.book &&
+                    _selectedStatus != ReadingStatus.read)
                   TextFormField(
                     controller: _currentPageController,
                     decoration: const InputDecoration(
@@ -311,10 +318,8 @@ class _AddItemScreenState extends State<AddItemScreen> {
                       allowHalfRating: true,
                       itemCount: 5,
                       itemSize: 40,
-                      itemBuilder: (context, _) => const Icon(
-                        Icons.star,
-                        color: Colors.amber,
-                      ),
+                      itemBuilder: (context, _) =>
+                          const Icon(Icons.star, color: Colors.amber),
                       onRatingUpdate: (rating) {
                         setState(() {
                           _rating = rating;
@@ -325,16 +330,6 @@ class _AddItemScreenState extends State<AddItemScreen> {
                 ),
 
                 const SizedBox(height: 16),
-
-                // Descrição
-                TextFormField(
-                  controller: _descriptionController,
-                  decoration: const InputDecoration(
-                    labelText: 'Descrição',
-                    hintText: 'Sinopse ou observações pessoais',
-                  ),
-                  maxLines: 3,
-                ),
 
                 const SizedBox(height: 24),
 
@@ -368,7 +363,9 @@ class _AddItemScreenState extends State<AddItemScreen> {
                           width: 20,
                           child: CircularProgressIndicator(
                             strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              Colors.white,
+                            ),
                           ),
                         )
                       : const Text(
@@ -380,6 +377,121 @@ class _AddItemScreenState extends State<AddItemScreen> {
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildMetadataHeader(String? imageUrl) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: Container(
+              width: 72,
+              height: 108,
+              color: Colors.brown.shade50,
+              child: imageUrl != null
+                  ? Image.network(
+                      imageUrl,
+                      fit: BoxFit.contain,
+                      errorBuilder: (_, __, ___) => Icon(
+                        Icons.menu_book,
+                        color: Colors.brown.shade300,
+                        size: 30,
+                      ),
+                    )
+                  : Icon(
+                      Icons.menu_book,
+                      color: Colors.brown.shade300,
+                      size: 30,
+                    ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  _nameController.text.isNotEmpty
+                      ? _nameController.text
+                      : 'Sem título',
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  _authorController.text.isNotEmpty
+                      ? _authorController.text
+                      : 'Autor não informado',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.grey.shade700,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInfoRow(IconData icon, String text) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 18, color: const Color(0xFF8D6E63)),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              text,
+              style: const TextStyle(fontSize: 14, color: Color(0xFF3E2723)),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDescriptionBlock(String description) {
+    final isLongDescription = description.length > 180;
+
+    return Container(
+      margin: const EdgeInsets.only(top: 10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            description,
+            maxLines: _isDescriptionExpanded ? null : 3,
+            overflow: _isDescriptionExpanded
+                ? TextOverflow.visible
+                : TextOverflow.ellipsis,
+            style: const TextStyle(fontSize: 14, height: 1.35),
+          ),
+          if (isLongDescription)
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton(
+                onPressed: () {
+                  setState(() {
+                    _isDescriptionExpanded = !_isDescriptionExpanded;
+                  });
+                },
+                style: TextButton.styleFrom(padding: EdgeInsets.zero),
+                child: Text(_isDescriptionExpanded ? 'Ler menos' : 'Ler mais'),
+              ),
+            ),
+        ],
       ),
     );
   }

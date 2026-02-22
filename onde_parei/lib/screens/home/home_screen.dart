@@ -2,10 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../services/auth_service.dart';
 import '../../services/firestore_service.dart';
-import '../../services/settings_service.dart';
 import '../../models/item_model.dart';
 import '../items/item_list_screen.dart';
-import '../items/add_item_screen.dart';
 import '../items/edit_item_screen.dart';
 import '../search/search_screen.dart';
 import '../settings/settings_screen.dart';
@@ -20,33 +18,18 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   int _selectedIndex = 0;
 
-  Future<String> _getDisplayName(
-    String userId,
-    String fallbackEmail,
-    SettingsService settingsService,
-  ) async {
-    try {
-      final settings = await settingsService.loadSettings(userId);
-      return settings.displayName.isNotEmpty
-          ? settings.displayName
-          : fallbackEmail.split('@')[0];
-    } catch (e) {
-      return fallbackEmail.split('@')[0];
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final authService = Provider.of<AuthService>(context);
     final firestoreService = Provider.of<FirestoreService>(context);
-    final settingsService = Provider.of<SettingsService>(context);
 
     final user = authService.currentUser;
-    final userEmail = user?.email ?? 'Usuário';
 
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: const Color(0xFF8D6E63), // Antique Brown - mesma cor do FAB
+        backgroundColor: const Color(
+          0xFF8D6E63,
+        ), // Antique Brown - mesma cor do FAB
         foregroundColor: Colors.white, // Texto branco para contraste
         title: Row(
           children: [
@@ -55,10 +38,7 @@ class _HomeScreenState extends State<HomeScreen> {
               color: Colors.white,
             ),
             const SizedBox(width: 8),
-            const Text(
-              'Onde Parei ?',
-              style: TextStyle(color: Colors.white),
-            ),
+            const Text('Onde Parei ?', style: TextStyle(color: Colors.white)),
           ],
         ),
         actions: [
@@ -76,52 +56,6 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
       body: Column(
         children: [
-          // Saudação do usuário com nome de exibição
-          FutureBuilder<String>(
-            future: _getDisplayName(user!.uid, userEmail, settingsService),
-            builder: (context, snapshot) {
-              final displayName = snapshot.data ?? userEmail.split('@')[0];
-
-              return Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.blue.shade50,
-                  borderRadius: const BorderRadius.only(
-                    bottomLeft: Radius.circular(16),
-                    bottomRight: Radius.circular(16),
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    const CircleAvatar(
-                      backgroundColor: Colors.blue,
-                      child: Icon(Icons.person, color: Colors.white),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Olá, $displayName!',
-                            style: const TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          const Text(
-                            'Gerencie seus mangás e livros',
-                            style: TextStyle(fontSize: 14, color: Colors.grey),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            },
-          ),
-
           // Estatísticas rápidas
           FutureBuilder<Map<String, dynamic>>(
             future: firestoreService.getUserStats(user!.uid),
@@ -178,7 +112,7 @@ class _HomeScreenState extends State<HomeScreen> {
             },
           ),
 
-          // Lista de itens recentes
+          // Lista de itens recentes em cards com capa em destaque
           Expanded(
             child: StreamBuilder<List<ItemModel>>(
               stream: firestoreService.getUserItems(user.uid),
@@ -222,7 +156,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
                 return ListView.builder(
                   padding: const EdgeInsets.all(16),
-                  itemCount: items.length > 5 ? 5 : items.length,
+                  itemCount: items.length > 10 ? 10 : items.length,
                   itemBuilder: (context, index) {
                     final item = items[index];
                     return _ItemCard(item: item);
@@ -323,51 +257,99 @@ class _ItemCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Card(
-      margin: const EdgeInsets.only(bottom: 8),
-      child: ListTile(
-        leading: CircleAvatar(
-          backgroundImage: item.imageUrl != null
-              ? NetworkImage(item.imageUrl!)
-              : null,
-          child: item.imageUrl == null ? Text(item.displayType[0]) : null,
-        ),
-        title: Text(item.name, maxLines: 1, overflow: TextOverflow.ellipsis),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(item.displayType),
-            if (item.displayCurrentPosition.isNotEmpty)
-              Text(
-                item.displayCurrentPosition,
-                style: const TextStyle(fontSize: 12),
-              ),
-          ],
-        ),
-        trailing: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-          decoration: BoxDecoration(
-            color: _getStatusColor(item.status).withOpacity(0.1),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: _getStatusColor(item.status)),
-          ),
-          child: Text(
-            item.displayStatus,
-            style: TextStyle(
-              color: _getStatusColor(item.status),
-              fontSize: 12,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ),
+      margin: const EdgeInsets.only(bottom: 12),
+      elevation: 2,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
         onTap: () {
           Navigator.push(
             context,
-            MaterialPageRoute(
-              builder: (context) => EditItemScreen(item: item),
-            ),
+            MaterialPageRoute(builder: (context) => EditItemScreen(item: item)),
           );
         },
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: item.imageUrl != null
+                    ? Image.network(
+                        item.imageUrl!,
+                        width: 72,
+                        height: 108,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => _buildImageFallback(),
+                      )
+                    : _buildImageFallback(),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      item.name,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      item.displayType,
+                      style: TextStyle(
+                        color: Colors.grey.shade700,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    if (item.displayCurrentPosition.isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        item.displayCurrentPosition,
+                        style: const TextStyle(fontSize: 13),
+                      ),
+                    ],
+                    const SizedBox(height: 10),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 5,
+                      ),
+                      decoration: BoxDecoration(
+                        color: _getStatusColor(item.status).withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: _getStatusColor(item.status)),
+                      ),
+                      child: Text(
+                        item.displayStatus,
+                        style: TextStyle(
+                          color: _getStatusColor(item.status),
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
+    );
+  }
+
+  Widget _buildImageFallback() {
+    return Container(
+      width: 72,
+      height: 108,
+      color: Colors.brown.shade100,
+      alignment: Alignment.center,
+      child: Icon(Icons.menu_book, color: Colors.brown.shade400, size: 30),
     );
   }
 

@@ -1,15 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-enum ItemType {
-  manga,
-  book,
-}
+enum ItemType { manga, book }
 
-enum ReadingStatus {
-  read,
-  reading,
-  wantToRead,
-}
+enum ReadingStatus { read, reading, wantToRead }
 
 class ItemModel {
   final String id;
@@ -23,6 +16,8 @@ class ItemModel {
   final double rating;
   final String? description;
   final String? author;
+  final String? publishedDate;
+  final List<String>? genres;
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -38,6 +33,8 @@ class ItemModel {
     required this.rating,
     this.description,
     this.author,
+    this.publishedDate,
+    this.genres,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -57,6 +54,10 @@ class ItemModel {
       rating: (data['rating'] ?? 0).toDouble(),
       description: data['description'],
       author: data['author'],
+      publishedDate: data['publishedDate'],
+      genres: (data['genres'] as List<dynamic>?)
+          ?.map((e) => e.toString())
+          .toList(),
       createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       updatedAt: (data['updatedAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
     );
@@ -74,6 +75,8 @@ class ItemModel {
       'rating': rating,
       'description': description,
       'author': author,
+      'publishedDate': publishedDate,
+      'genres': genres,
       'createdAt': Timestamp.fromDate(createdAt),
       'updatedAt': Timestamp.fromDate(updatedAt),
     };
@@ -91,6 +94,8 @@ class ItemModel {
     double? rating,
     String? description,
     String? author,
+    String? publishedDate,
+    List<String>? genres,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -106,6 +111,8 @@ class ItemModel {
       rating: rating ?? this.rating,
       description: description ?? this.description,
       author: author ?? this.author,
+      publishedDate: publishedDate ?? this.publishedDate,
+      genres: genres ?? this.genres,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
