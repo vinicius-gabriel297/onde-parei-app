@@ -250,9 +250,9 @@ Este projeto está sob a licença MIT. Veja o arquivo [LICENSE](LICENSE) para ma
 ## 👨‍💻 Autor
 
 **Vinícius**
-- GitHub: [@seu-github](https://github.com/seu-github)
-- LinkedIn: [Seu LinkedIn]
-- E-mail: seu-email@example.com
+- GitHub: [@vinicius-gabriel297](https://github.com/vinicius-gabriel297)
+- LinkedIn: [https://www.linkedin.com/in/vinicius-silva-59a420213/]
+- E-mail: viniciuscarvalho.silva676@gmail.com
 
 ---
 
