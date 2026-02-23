@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../services/auth_service.dart';
+import '../../services/firestore_service.dart';
 import '../../services/settings_service.dart';
 import '../../models/user_settings.dart';
 
@@ -46,7 +47,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _loadSettings() async {
     try {
       final authService = Provider.of<AuthService>(context, listen: false);
-      final settingsService = Provider.of<SettingsService>(context, listen: false);
+      final settingsService = Provider.of<SettingsService>(
+        context,
+        listen: false,
+      );
 
       final user = authService.currentUser;
       if (user != null) {
@@ -74,7 +78,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
     try {
       final authService = Provider.of<AuthService>(context, listen: false);
-      final settingsService = Provider.of<SettingsService>(context, listen: false);
+      final settingsService = Provider.of<SettingsService>(
+        context,
+        listen: false,
+      );
 
       final user = authService.currentUser;
       if (user != null) {
@@ -91,13 +98,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
         // Aplicar tema se mudou
         if (updatedSettings.isDarkMode != _currentSettings!.isDarkMode) {
-          Provider.of<ThemeNotifier>(context, listen: false).setDarkMode(updatedSettings.isDarkMode);
+          Provider.of<ThemeNotifier>(
+            context,
+            listen: false,
+          ).setDarkMode(updatedSettings.isDarkMode);
         }
 
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
+          SnackBar(
             content: Text('Configurações salvas com sucesso!'),
-            backgroundColor: Colors.green,
+            backgroundColor: Theme.of(context).colorScheme.secondary,
           ),
         );
       }
@@ -114,6 +124,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Configurações'),
@@ -154,12 +166,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       Row(
                         children: [
                           CircleAvatar(
-                            backgroundColor: Colors.blue,
+                            backgroundColor: const Color(0xFF4F6C73),
                             radius: 30,
                             child: const Icon(
                               Icons.person,
                               size: 40,
-                              color: Colors.white,
+                              color: Color(0xFFF6F4EF),
                             ),
                           ),
                           const SizedBox(width: 16),
@@ -174,9 +186,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                 const SizedBox(height: 4),
                                 Text(
                                   'Configure seu perfil e preferências',
-                                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                    color: Colors.grey[600],
-                                  ),
+                                  style: Theme.of(context).textTheme.bodyMedium
+                                      ?.copyWith(color: colorScheme.secondary),
                                 ),
                               ],
                             ),
@@ -219,7 +230,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       Text(
                         'Este nome aparecerá na tela inicial ao invés do email',
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Colors.grey[600],
+                          color: colorScheme.secondary,
                         ),
                       ),
                     ],
@@ -228,7 +239,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
 
               const SizedBox(height: 16),
-
 
               // Sobre o app
               Card(
@@ -251,6 +261,42 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         leading: const Icon(Icons.code),
                         title: const Text('Desenvolvido com'),
                         subtitle: const Text('Flutter & Firebase'),
+                      ),
+                      const SizedBox(height: 8),
+                      SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton.icon(
+                          onPressed: () async {
+                            final authService = Provider.of<AuthService>(
+                              context,
+                              listen: false,
+                            );
+                            final firestoreService =
+                                Provider.of<FirestoreService>(
+                                  context,
+                                  listen: false,
+                                );
+
+                            final user = authService.currentUser;
+                            if (user == null) return;
+
+                            final updatedCount = await firestoreService
+                                .migrateUserImageUrlsToHttps(user.uid);
+
+                            if (!context.mounted) return;
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  updatedCount > 0
+                                      ? '$updatedCount capa(s) corrigida(s) para HTTPS.'
+                                      : 'Nenhuma capa precisava de correção.',
+                                ),
+                              ),
+                            );
+                          },
+                          icon: const Icon(Icons.image_search),
+                          label: const Text('Corrigir capas para Web (HTTPS)'),
+                        ),
                       ),
                     ],
                   ),
@@ -285,13 +331,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                 ),
                                 actions: [
                                   TextButton(
-                                    onPressed: () => Navigator.of(context).pop(false),
+                                    onPressed: () =>
+                                        Navigator.of(context).pop(false),
                                     child: const Text('Cancelar'),
                                   ),
                                   TextButton(
-                                    onPressed: () => Navigator.of(context).pop(true),
+                                    onPressed: () =>
+                                        Navigator.of(context).pop(true),
                                     style: TextButton.styleFrom(
-                                      foregroundColor: Colors.red,
+                                      foregroundColor: Theme.of(
+                                        context,
+                                      ).colorScheme.error,
                                     ),
                                     child: const Text('Sair'),
                                   ),
@@ -317,8 +367,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           icon: const Icon(Icons.logout),
                           label: const Text('Sair da Conta'),
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.red.shade50,
-                            foregroundColor: Colors.red,
+                            backgroundColor: colorScheme.error.withValues(
+                              alpha: 0.12,
+                            ),
+                            foregroundColor: colorScheme.error,
                             padding: const EdgeInsets.symmetric(vertical: 12),
                           ),
                         ),
@@ -335,13 +387,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: Colors.red.shade50,
+                    color: colorScheme.error.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.red.shade200),
+                    border: Border.all(
+                      color: colorScheme.error.withValues(alpha: 0.4),
+                    ),
                   ),
                   child: Text(
                     _errorMessage!,
-                    style: TextStyle(color: Colors.red.shade700),
+                    style: TextStyle(color: colorScheme.error),
                     textAlign: TextAlign.center,
                   ),
                 ),
@@ -355,12 +409,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   padding: const EdgeInsets.symmetric(vertical: 16),
                 ),
                 child: _isLoading
-                    ? const SizedBox(
+                    ? SizedBox(
                         height: 20,
                         width: 20,
                         child: CircularProgressIndicator(
                           strokeWidth: 2,
-                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            colorScheme.onPrimary,
+                          ),
                         ),
                       )
                     : const Text(

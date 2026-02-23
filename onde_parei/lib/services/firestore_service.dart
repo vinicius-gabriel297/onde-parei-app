@@ -14,9 +14,13 @@ class FirestoreService {
       return docRef.id;
     } catch (e) {
       if (e.toString().contains('permission-denied')) {
-        throw Exception('Erro de permissão: Configure as regras de segurança do Firestore primeiro');
+        throw Exception(
+          'Erro de permissão: Configure as regras de segurança do Firestore primeiro',
+        );
       } else if (e.toString().contains('unavailable')) {
-        throw Exception('Erro de conexão: Verifique sua conexão com a internet');
+        throw Exception(
+          'Erro de conexão: Verifique sua conexão com a internet',
+        );
       } else {
         throw Exception('Erro ao adicionar item: $e');
       }
@@ -29,9 +33,13 @@ class FirestoreService {
       await _itemsCollection.doc(item.id).update(item.toFirestore());
     } catch (e) {
       if (e.toString().contains('permission-denied')) {
-        throw Exception('Erro de permissão: Configure as regras de segurança do Firestore primeiro');
+        throw Exception(
+          'Erro de permissão: Configure as regras de segurança do Firestore primeiro',
+        );
       } else if (e.toString().contains('unavailable')) {
-        throw Exception('Erro de conexão: Verifique sua conexão com a internet');
+        throw Exception(
+          'Erro de conexão: Verifique sua conexão com a internet',
+        );
       } else {
         throw Exception('Erro ao atualizar item: $e');
       }
@@ -44,9 +52,13 @@ class FirestoreService {
       await _itemsCollection.doc(itemId).delete();
     } catch (e) {
       if (e.toString().contains('permission-denied')) {
-        throw Exception('Erro de permissão: Configure as regras de segurança do Firestore primeiro');
+        throw Exception(
+          'Erro de permissão: Configure as regras de segurança do Firestore primeiro',
+        );
       } else if (e.toString().contains('unavailable')) {
-        throw Exception('Erro de conexão: Verifique sua conexão com a internet');
+        throw Exception(
+          'Erro de conexão: Verifique sua conexão com a internet',
+        );
       } else {
         throw Exception('Erro ao remover item: $e');
       }
@@ -60,8 +72,10 @@ class FirestoreService {
         .orderBy('updatedAt', descending: true)
         .snapshots()
         .map((snapshot) {
-      return snapshot.docs.map((doc) => ItemModel.fromFirestore(doc)).toList();
-    });
+          return snapshot.docs
+              .map((doc) => ItemModel.fromFirestore(doc))
+              .toList();
+        });
   }
 
   // Buscar item específico
@@ -78,15 +92,20 @@ class FirestoreService {
   }
 
   // Buscar itens por status
-  Stream<List<ItemModel>> getUserItemsByStatus(String userId, ReadingStatus status) {
+  Stream<List<ItemModel>> getUserItemsByStatus(
+    String userId,
+    ReadingStatus status,
+  ) {
     return _itemsCollection
         .where('userId', isEqualTo: userId)
         .where('status', isEqualTo: status.index)
         .orderBy('updatedAt', descending: true)
         .snapshots()
         .map((snapshot) {
-      return snapshot.docs.map((doc) => ItemModel.fromFirestore(doc)).toList();
-    });
+          return snapshot.docs
+              .map((doc) => ItemModel.fromFirestore(doc))
+              .toList();
+        });
   }
 
   // Buscar itens por tipo
@@ -97,14 +116,18 @@ class FirestoreService {
         .orderBy('updatedAt', descending: true)
         .snapshots()
         .map((snapshot) {
-      return snapshot.docs.map((doc) => ItemModel.fromFirestore(doc)).toList();
-    });
+          return snapshot.docs
+              .map((doc) => ItemModel.fromFirestore(doc))
+              .toList();
+        });
   }
 
   // Buscar estatísticas do usuário
   Future<Map<String, dynamic>> getUserStats(String userId) async {
     try {
-      final snapshot = await _itemsCollection.where('userId', isEqualTo: userId).get();
+      final snapshot = await _itemsCollection
+          .where('userId', isEqualTo: userId)
+          .get();
 
       int totalMangas = 0;
       int totalBooks = 0;
@@ -154,12 +177,49 @@ class FirestoreService {
     } catch (e) {
       // Melhorar tratamento de erros para problemas de permissão
       if (e.toString().contains('permission-denied')) {
-        throw Exception('Erro de permissão: As regras de segurança do Firestore precisam ser configuradas. Execute o arquivo deploy_firestore_rules.bat');
+        throw Exception(
+          'Erro de permissão: As regras de segurança do Firestore precisam ser configuradas. Execute o arquivo deploy_firestore_rules.bat',
+        );
       } else if (e.toString().contains('unavailable')) {
-        throw Exception('Erro de conexão: Verifique sua conexão com a internet');
+        throw Exception(
+          'Erro de conexão: Verifique sua conexão com a internet',
+        );
       } else {
         throw Exception('Erro ao buscar estatísticas: $e');
       }
+    }
+  }
+
+  // Migração: normaliza URLs de capa com http:// para https:// (evita mixed content no Web)
+  Future<int> migrateUserImageUrlsToHttps(String userId) async {
+    try {
+      final snapshot = await _itemsCollection
+          .where('userId', isEqualTo: userId)
+          .get();
+
+      final batch = _db.batch();
+      int updatedCount = 0;
+
+      for (final doc in snapshot.docs) {
+        final data = doc.data() as Map<String, dynamic>;
+        final imageUrl = data['imageUrl'];
+
+        if (imageUrl is String && imageUrl.startsWith('http://')) {
+          batch.update(doc.reference, {
+            'imageUrl': imageUrl.replaceFirst('http://', 'https://'),
+            'updatedAt': Timestamp.fromDate(DateTime.now()),
+          });
+          updatedCount++;
+        }
+      }
+
+      if (updatedCount > 0) {
+        await batch.commit();
+      }
+
+      return updatedCount;
+    } catch (e) {
+      throw Exception('Erro ao migrar URLs de imagem para HTTPS: $e');
     }
   }
 }

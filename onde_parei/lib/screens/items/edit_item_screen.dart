@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../services/auth_service.dart';
 import '../../services/firestore_service.dart';
 import '../../models/item_model.dart';
+import '../../widgets/adaptive_network_image.dart';
 
 class EditItemScreen extends StatefulWidget {
   final ItemModel item;
@@ -109,7 +110,7 @@ class _EditItemScreenState extends State<EditItemScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Item atualizado com sucesso!'),
-          backgroundColor: Colors.green,
+          backgroundColor: Color(0xFF697345),
         ),
       );
     } catch (e) {
@@ -125,231 +126,201 @@ class _EditItemScreenState extends State<EditItemScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Aplicar tema claro para os campos de entrada
-    return Theme(
-      data: ThemeData(
-        inputDecorationTheme: InputDecorationTheme(
-          filled: true,
-          fillColor: Colors.white, // Fundo branco para contraste
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: const BorderSide(color: Colors.grey),
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: const BorderSide(
-              color: Color(0xFF8D6E63),
-              width: 2,
-            ), // Antique Brown
-          ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: const BorderSide(color: Colors.grey),
-          ),
-          labelStyle: const TextStyle(color: Color(0xFF3E2723)), // Dark Brown
-          hintStyle: TextStyle(
-            color: Color(0xFF8D6E63).withOpacity(0.7),
-          ), // Antique Brown claro
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Editar Item'),
+        leading: IconButton(
+          icon: const Icon(Icons.close),
+          onPressed: () => Navigator.pop(context),
         ),
-        scaffoldBackgroundColor: const Color(
-          0xFFFFFBF7,
-        ), // Warm Cream para fundo
-      ),
-      child: Scaffold(
-        appBar: AppBar(
-          backgroundColor: const Color(0xFF8D6E63), // Antique Brown
-          foregroundColor: Colors.white,
-          title: const Text('Editar Item'),
-          leading: IconButton(
-            icon: const Icon(Icons.close, color: Colors.white),
-            onPressed: () => Navigator.pop(context),
-          ),
-          actions: [
-            TextButton(
-              onPressed: _isLoading ? null : _updateItem,
-              child: _isLoading
-                  ? const SizedBox(
-                      height: 20,
-                      width: 20,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+        actions: [
+          TextButton(
+            onPressed: _isLoading ? null : _updateItem,
+            child: _isLoading
+                ? SizedBox(
+                    height: 20,
+                    width: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor: AlwaysStoppedAnimation<Color>(
+                        colorScheme.onPrimary,
                       ),
-                    )
-                  : const Text('Salvar', style: TextStyle(color: Colors.white)),
-            ),
-          ],
-        ),
-        body: SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                _buildMetadataHeader(widget.item.imageUrl),
-
-                const SizedBox(height: 12),
-
-                if (_publishedDate != null && _publishedDate!.trim().isNotEmpty)
-                  _buildInfoRow(Icons.event, 'Publicação: $_publishedDate'),
-
-                if (_genres.isNotEmpty)
-                  _buildInfoRow(
-                    Icons.category,
-                    'Gêneros: ${_genres.join(' • ')}',
+                    ),
+                  )
+                : Text(
+                    'Salvar',
+                    style: TextStyle(color: colorScheme.onPrimary),
                   ),
+          ),
+        ],
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: Form(
+          key: _formKey,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _buildMetadataHeader(widget.item.imageUrl),
 
-                if (_descriptionController.text.trim().isNotEmpty)
-                  _buildDescriptionBlock(_descriptionController.text.trim()),
+              const SizedBox(height: 12),
 
-                const SizedBox(height: 24),
+              if (_publishedDate != null && _publishedDate!.trim().isNotEmpty)
+                _buildInfoRow(Icons.event, 'Publicação: $_publishedDate'),
 
-                // Tipo
-                DropdownButtonFormField<ItemType>(
-                  value: _selectedType,
-                  decoration: const InputDecoration(labelText: 'Tipo *'),
-                  items: const [
-                    DropdownMenuItem(
-                      value: ItemType.manga,
-                      child: Text('Mangá'),
-                    ),
-                    DropdownMenuItem(
-                      value: ItemType.book,
-                      child: Text('Livro'),
-                    ),
-                  ],
-                  onChanged: (value) {
-                    setState(() {
-                      _selectedType = value!;
-                    });
-                  },
+              if (_genres.isNotEmpty)
+                _buildInfoRow(
+                  Icons.category,
+                  'Gêneros: ${_genres.join(' • ')}',
                 ),
 
-                const SizedBox(height: 16),
+              if (_descriptionController.text.trim().isNotEmpty)
+                _buildDescriptionBlock(_descriptionController.text.trim()),
 
-                // Status
-                DropdownButtonFormField<ReadingStatus>(
-                  value: _selectedStatus,
-                  decoration: const InputDecoration(labelText: 'Status *'),
-                  items: const [
-                    DropdownMenuItem(
-                      value: ReadingStatus.wantToRead,
-                      child: Text('Pretendo ler'),
-                    ),
-                    DropdownMenuItem(
-                      value: ReadingStatus.reading,
-                      child: Text('Lendo'),
-                    ),
-                    DropdownMenuItem(
-                      value: ReadingStatus.read,
-                      child: Text('Lido'),
-                    ),
-                  ],
-                  onChanged: (value) {
-                    setState(() {
-                      _selectedStatus = value!;
-                    });
-                  },
+              const SizedBox(height: 24),
+
+              // Tipo
+              DropdownButtonFormField<ItemType>(
+                value: _selectedType,
+                decoration: const InputDecoration(labelText: 'Tipo *'),
+                items: const [
+                  DropdownMenuItem(value: ItemType.manga, child: Text('Mangá')),
+                  DropdownMenuItem(value: ItemType.book, child: Text('Livro')),
+                ],
+                onChanged: (value) {
+                  setState(() {
+                    _selectedType = value!;
+                  });
+                },
+              ),
+
+              const SizedBox(height: 16),
+
+              // Status
+              DropdownButtonFormField<ReadingStatus>(
+                value: _selectedStatus,
+                decoration: const InputDecoration(labelText: 'Status *'),
+                items: const [
+                  DropdownMenuItem(
+                    value: ReadingStatus.wantToRead,
+                    child: Text('Pretendo ler'),
+                  ),
+                  DropdownMenuItem(
+                    value: ReadingStatus.reading,
+                    child: Text('Lendo'),
+                  ),
+                  DropdownMenuItem(
+                    value: ReadingStatus.read,
+                    child: Text('Lido'),
+                  ),
+                ],
+                onChanged: (value) {
+                  setState(() {
+                    _selectedStatus = value!;
+                  });
+                },
+              ),
+
+              const SizedBox(height: 16),
+
+              // Capítulo atual (para mangás)
+              if (_selectedType == ItemType.manga)
+                TextFormField(
+                  controller: _currentChapterController,
+                  decoration: const InputDecoration(
+                    labelText: 'Capítulo atual',
+                    hintText: 'Ex: 15',
+                  ),
+                  keyboardType: TextInputType.number,
                 ),
 
-                const SizedBox(height: 16),
-
-                // Capítulo atual (para mangás)
-                if (_selectedType == ItemType.manga)
-                  TextFormField(
-                    controller: _currentChapterController,
-                    decoration: const InputDecoration(
-                      labelText: 'Capítulo atual',
-                      hintText: 'Ex: 15',
-                    ),
-                    keyboardType: TextInputType.number,
+              // Página atual (para livros em andamento)
+              if (_selectedType == ItemType.book &&
+                  _selectedStatus != ReadingStatus.read)
+                TextFormField(
+                  controller: _currentPageController,
+                  decoration: const InputDecoration(
+                    labelText: 'Página atual',
+                    hintText: 'Ex: 150',
                   ),
-
-                // Página atual (para livros em andamento)
-                if (_selectedType == ItemType.book &&
-                    _selectedStatus != ReadingStatus.read)
-                  TextFormField(
-                    controller: _currentPageController,
-                    decoration: const InputDecoration(
-                      labelText: 'Página atual',
-                      hintText: 'Ex: 150',
-                    ),
-                    keyboardType: TextInputType.number,
-                  ),
-
-                const SizedBox(height: 16),
-
-                // Avaliação
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text('Avaliação'),
-                    const SizedBox(height: 8),
-                    RatingBar.builder(
-                      initialRating: _rating,
-                      minRating: 0,
-                      direction: Axis.horizontal,
-                      allowHalfRating: true,
-                      itemCount: 5,
-                      itemSize: 40,
-                      itemBuilder: (context, _) =>
-                          const Icon(Icons.star, color: Colors.amber),
-                      onRatingUpdate: (rating) {
-                        setState(() {
-                          _rating = rating;
-                        });
-                      },
-                    ),
-                  ],
+                  keyboardType: TextInputType.number,
                 ),
 
-                const SizedBox(height: 16),
+              const SizedBox(height: 16),
 
-                const SizedBox(height: 24),
+              // Avaliação
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Avaliação'),
+                  const SizedBox(height: 8),
+                  RatingBar.builder(
+                    initialRating: _rating,
+                    minRating: 0,
+                    direction: Axis.horizontal,
+                    allowHalfRating: true,
+                    itemCount: 5,
+                    itemSize: 40,
+                    itemBuilder: (context, _) =>
+                        const Icon(Icons.star, color: Colors.amber),
+                    onRatingUpdate: (rating) {
+                      setState(() {
+                        _rating = rating;
+                      });
+                    },
+                  ),
+                ],
+              ),
 
-                // Mensagem de erro
-                if (_errorMessage != null)
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.red.shade50,
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.red.shade200),
-                    ),
-                    child: Text(
-                      _errorMessage!,
-                      style: TextStyle(color: Colors.red.shade700),
-                      textAlign: TextAlign.center,
+              const SizedBox(height: 16),
+
+              const SizedBox(height: 24),
+
+              // Mensagem de erro
+              if (_errorMessage != null)
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: colorScheme.error.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: colorScheme.error.withValues(alpha: 0.4),
                     ),
                   ),
-
-                const SizedBox(height: 16),
-
-                // Botão atualizar
-                ElevatedButton(
-                  onPressed: _isLoading ? null : _updateItem,
-                  style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 16),
+                  child: Text(
+                    _errorMessage!,
+                    style: TextStyle(color: colorScheme.error),
+                    textAlign: TextAlign.center,
                   ),
-                  child: _isLoading
-                      ? const SizedBox(
-                          height: 20,
-                          width: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation<Color>(
-                              Colors.white,
-                            ),
+                ),
+
+              const SizedBox(height: 16),
+
+              // Botão atualizar
+              ElevatedButton(
+                onPressed: _isLoading ? null : _updateItem,
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                ),
+                child: _isLoading
+                    ? SizedBox(
+                        height: 20,
+                        width: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            colorScheme.onPrimary,
                           ),
-                        )
-                      : const Text(
-                          'Atualizar Item',
-                          style: TextStyle(fontSize: 16),
                         ),
-                ),
-              ],
-            ),
+                      )
+                    : const Text(
+                        'Atualizar Item',
+                        style: TextStyle(fontSize: 16),
+                      ),
+              ),
+            ],
           ),
         ),
       ),
@@ -367,20 +338,20 @@ class _EditItemScreenState extends State<EditItemScreen> {
             child: Container(
               width: 72,
               height: 108,
-              color: Colors.brown.shade50,
+              color: const Color(0xFF727355),
               child: imageUrl != null
-                  ? Image.network(
-                      imageUrl,
+                  ? AdaptiveNetworkImage(
+                      imageUrl: imageUrl,
                       fit: BoxFit.contain,
-                      errorBuilder: (_, __, ___) => Icon(
+                      fallback: Icon(
                         Icons.menu_book,
-                        color: Colors.brown.shade300,
+                        color: const Color(0xFFF6F4EF),
                         size: 30,
                       ),
                     )
                   : Icon(
                       Icons.menu_book,
-                      color: Colors.brown.shade300,
+                      color: const Color(0xFFF6F4EF),
                       size: 30,
                     ),
             ),
@@ -406,7 +377,7 @@ class _EditItemScreenState extends State<EditItemScreen> {
                       : 'Autor não informado',
                   style: TextStyle(
                     fontSize: 14,
-                    color: Colors.grey.shade700,
+                    color: Theme.of(context).colorScheme.secondary,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
@@ -424,12 +395,12 @@ class _EditItemScreenState extends State<EditItemScreen> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, size: 18, color: const Color(0xFF8D6E63)),
+          Icon(icon, size: 18, color: const Color(0xFF4F6C73)),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
               text,
-              style: const TextStyle(fontSize: 14, color: Color(0xFF3E2723)),
+              style: const TextStyle(fontSize: 14, color: Color(0xFF727355)),
             ),
           ),
         ],

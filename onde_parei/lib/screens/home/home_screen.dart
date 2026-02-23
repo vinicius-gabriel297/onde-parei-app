@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../../services/auth_service.dart';
 import '../../services/firestore_service.dart';
 import '../../models/item_model.dart';
+import '../../widgets/adaptive_network_image.dart';
 import '../items/item_list_screen.dart';
 import '../items/edit_item_screen.dart';
 import '../search/search_screen.dart';
@@ -20,6 +21,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     final authService = Provider.of<AuthService>(context);
     final firestoreService = Provider.of<FirestoreService>(context);
 
@@ -27,23 +29,22 @@ class _HomeScreenState extends State<HomeScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: const Color(
-          0xFF8D6E63,
-        ), // Antique Brown - mesma cor do FAB
-        foregroundColor: Colors.white, // Texto branco para contraste
         title: Row(
           children: [
-            const Icon(
+            Icon(
               Icons.book, // Ícone de livro
-              color: Colors.white,
+              color: colorScheme.onPrimary,
             ),
             const SizedBox(width: 8),
-            const Text('Onde Parei ?', style: TextStyle(color: Colors.white)),
+            Text(
+              'Onde Parei ?',
+              style: TextStyle(color: colorScheme.onPrimary),
+            ),
           ],
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.settings, color: Colors.white),
+            icon: Icon(Icons.settings, color: colorScheme.onPrimary),
             onPressed: () {
               Navigator.push(
                 context,
@@ -69,7 +70,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   padding: const EdgeInsets.all(16),
                   child: Text(
                     'Erro ao carregar estatísticas: ${snapshot.error}',
-                    style: const TextStyle(color: Colors.red),
+                    style: TextStyle(color: colorScheme.error),
                   ),
                 );
               }
@@ -85,7 +86,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         title: 'Total',
                         value: '${stats['totalItems'] ?? 0}',
                         icon: Icons.library_books,
-                        color: Colors.blue,
+                        color: const Color(0xFF4F6C73),
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -94,7 +95,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         title: 'Lendo',
                         value: '${stats['readingCount'] ?? 0}',
                         icon: Icons.bookmark,
-                        color: Colors.orange,
+                        color: const Color(0xFFBF8F65),
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -103,7 +104,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         title: 'Lidos',
                         value: '${stats['readCount'] ?? 0}',
                         icon: Icons.check_circle,
-                        color: Colors.green,
+                        color: const Color(0xFF697345),
                       ),
                     ),
                   ],
@@ -125,7 +126,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   return Center(
                     child: Text(
                       'Erro ao carregar itens: ${snapshot.error}',
-                      style: const TextStyle(color: Colors.red),
+                      style: TextStyle(color: colorScheme.error),
                     ),
                   );
                 }
@@ -133,21 +134,31 @@ class _HomeScreenState extends State<HomeScreen> {
                 final items = snapshot.data ?? [];
 
                 if (items.isEmpty) {
-                  return const Center(
+                  return Center(
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.library_books, size: 80, color: Colors.grey),
-                        SizedBox(height: 16),
+                        Icon(
+                          Icons.library_books,
+                          size: 80,
+                          color: colorScheme.secondary,
+                        ),
+                        const SizedBox(height: 16),
                         Text(
                           'Nenhum item adicionado ainda',
-                          style: TextStyle(fontSize: 18, color: Colors.grey),
+                          style: TextStyle(
+                            fontSize: 18,
+                            color: colorScheme.secondary,
+                          ),
                         ),
-                        SizedBox(height: 8),
+                        const SizedBox(height: 8),
                         Text(
                           'Toque no botão + para adicionar seu primeiro mangá ou livro',
                           textAlign: TextAlign.center,
-                          style: TextStyle(fontSize: 14, color: Colors.grey),
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: colorScheme.secondary,
+                          ),
                         ),
                       ],
                     ),
@@ -223,9 +234,9 @@ class _StatCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: color.withOpacity(0.3)),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
       child: Column(
         children: [
@@ -241,7 +252,7 @@ class _StatCard extends StatelessWidget {
           ),
           Text(
             title,
-            style: TextStyle(fontSize: 12, color: color.withOpacity(0.8)),
+            style: TextStyle(fontSize: 12, color: color.withValues(alpha: 0.8)),
           ),
         ],
       ),
@@ -256,6 +267,8 @@ class _ItemCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       elevation: 2,
@@ -275,12 +288,12 @@ class _ItemCard extends StatelessWidget {
               ClipRRect(
                 borderRadius: BorderRadius.circular(8),
                 child: item.imageUrl != null
-                    ? Image.network(
-                        item.imageUrl!,
+                    ? AdaptiveNetworkImage(
+                        imageUrl: item.imageUrl!,
                         width: 72,
                         height: 108,
                         fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => _buildImageFallback(),
+                        fallback: _buildImageFallback(),
                       )
                     : _buildImageFallback(),
               ),
@@ -302,7 +315,7 @@ class _ItemCard extends StatelessWidget {
                     Text(
                       item.displayType,
                       style: TextStyle(
-                        color: Colors.grey.shade700,
+                        color: colorScheme.secondary,
                         fontWeight: FontWeight.w500,
                       ),
                     ),
@@ -320,7 +333,9 @@ class _ItemCard extends StatelessWidget {
                         vertical: 5,
                       ),
                       decoration: BoxDecoration(
-                        color: _getStatusColor(item.status).withOpacity(0.1),
+                        color: _getStatusColor(
+                          item.status,
+                        ).withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(20),
                         border: Border.all(color: _getStatusColor(item.status)),
                       ),
@@ -347,20 +362,20 @@ class _ItemCard extends StatelessWidget {
     return Container(
       width: 72,
       height: 108,
-      color: Colors.brown.shade100,
+      color: const Color(0xFF727355),
       alignment: Alignment.center,
-      child: Icon(Icons.menu_book, color: Colors.brown.shade400, size: 30),
+      child: const Icon(Icons.menu_book, color: Color(0xFFF6F4EF), size: 30),
     );
   }
 
   Color _getStatusColor(ReadingStatus status) {
     switch (status) {
       case ReadingStatus.read:
-        return Colors.green;
+        return const Color(0xFF697345);
       case ReadingStatus.reading:
-        return Colors.orange;
+        return const Color(0xFFBF8F65);
       case ReadingStatus.wantToRead:
-        return Colors.blue;
+        return const Color(0xFF4F6C73);
     }
   }
 }

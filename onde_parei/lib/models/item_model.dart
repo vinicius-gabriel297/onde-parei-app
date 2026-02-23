@@ -21,6 +21,11 @@ class ItemModel {
   final DateTime createdAt;
   final DateTime updatedAt;
 
+  static String? normalizeImageUrl(String? url) {
+    if (url == null || url.trim().isEmpty) return url;
+    return url.replaceFirst('http://', 'https://');
+  }
+
   ItemModel({
     required this.id,
     required this.userId,
@@ -46,7 +51,7 @@ class ItemModel {
       id: doc.id,
       userId: data['userId'] ?? '',
       name: data['name'] ?? '',
-      imageUrl: data['imageUrl'],
+      imageUrl: normalizeImageUrl(data['imageUrl'] as String?),
       type: ItemType.values[data['type'] ?? 0],
       status: ReadingStatus.values[data['status'] ?? 0],
       currentChapter: data['currentChapter'] ?? '',
@@ -67,7 +72,7 @@ class ItemModel {
     return {
       'userId': userId,
       'name': name,
-      'imageUrl': imageUrl,
+      'imageUrl': normalizeImageUrl(imageUrl),
       'type': type.index,
       'status': status.index,
       'currentChapter': currentChapter,
@@ -103,7 +108,7 @@ class ItemModel {
       id: id ?? this.id,
       userId: userId ?? this.userId,
       name: name ?? this.name,
-      imageUrl: imageUrl ?? this.imageUrl,
+      imageUrl: normalizeImageUrl(imageUrl ?? this.imageUrl),
       type: type ?? this.type,
       status: status ?? this.status,
       currentChapter: currentChapter ?? this.currentChapter,

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../services/api_service.dart';
 import '../../models/api_models.dart';
 import '../items/add_item_screen.dart';
+import '../../widgets/adaptive_network_image.dart';
 
 class SearchScreen extends StatefulWidget {
   const SearchScreen({super.key});
@@ -82,16 +83,13 @@ class _SearchScreenState extends State<SearchScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: const Color(0xFF8D6E63), // Antique Brown - mesma cor dos outros headers
-        foregroundColor: Colors.white, // Texto branco para contraste
-        title: const Text(
-          'Buscar Mangá/Livro',
-          style: TextStyle(color: Colors.white),
-        ),
+        title: const Text('Buscar Mangá/Livro'),
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          icon: const Icon(Icons.arrow_back),
           onPressed: () => Navigator.pop(context),
         ),
         actions: [
@@ -113,9 +111,12 @@ class _SearchScreenState extends State<SearchScreen> {
                         : _selectedTypeFilter == 'manga'
                         ? 'Mangás'
                         : 'Livros',
-                    style: const TextStyle(fontSize: 14, color: Colors.white),
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: colorScheme.onPrimary,
+                    ),
                   ),
-                  const Icon(Icons.arrow_drop_down, color: Colors.white),
+                  Icon(Icons.arrow_drop_down, color: colorScheme.onPrimary),
                 ],
               ),
             ),
@@ -184,7 +185,7 @@ class _SearchScreenState extends State<SearchScreen> {
               padding: const EdgeInsets.all(16),
               child: Text(
                 _errorMessage!,
-                style: const TextStyle(color: Colors.red),
+                style: TextStyle(color: colorScheme.error),
                 textAlign: TextAlign.center,
               ),
             ),
@@ -192,21 +193,31 @@ class _SearchScreenState extends State<SearchScreen> {
           // Resultados da busca
           Expanded(
             child: _searchResults.isEmpty && !_isLoading
-                ? const Center(
+                ? Center(
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.search, size: 80, color: Colors.grey),
-                        SizedBox(height: 16),
+                        Icon(
+                          Icons.search,
+                          size: 80,
+                          color: colorScheme.secondary,
+                        ),
+                        const SizedBox(height: 16),
                         Text(
                           'Digite algo para buscar',
-                          style: TextStyle(fontSize: 18, color: Colors.grey),
+                          style: TextStyle(
+                            fontSize: 18,
+                            color: colorScheme.secondary,
+                          ),
                         ),
-                        SizedBox(height: 8),
+                        const SizedBox(height: 8),
                         Text(
                           'Encontre mangás e livros para adicionar à sua coleção',
                           textAlign: TextAlign.center,
-                          style: TextStyle(fontSize: 14, color: Colors.grey),
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: colorScheme.secondary,
+                          ),
                         ),
                       ],
                     ),
@@ -245,6 +256,8 @@ class _SearchResultCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       child: InkWell(
@@ -260,30 +273,28 @@ class _SearchResultCard extends StatelessWidget {
                 height: 80,
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(8),
-                  color: Colors.grey.shade200,
+                  color: colorScheme.surface,
                 ),
                 child: result.imageUrl != null
                     ? ClipRRect(
                         borderRadius: BorderRadius.circular(8),
-                        child: Image.network(
-                          result.imageUrl!,
+                        child: AdaptiveNetworkImage(
+                          imageUrl: result.imageUrl!,
                           fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) {
-                            return Container(
-                              color: Colors.grey.shade200,
-                              child: Icon(
-                                result.type == 'manga'
-                                    ? Icons.book
-                                    : Icons.menu_book,
-                                color: Colors.grey,
-                              ),
-                            );
-                          },
+                          fallback: Container(
+                            color: colorScheme.surface,
+                            child: Icon(
+                              result.type == 'manga'
+                                  ? Icons.book
+                                  : Icons.menu_book,
+                              color: colorScheme.secondary,
+                            ),
+                          ),
                         ),
                       )
                     : Icon(
                         result.type == 'manga' ? Icons.book : Icons.menu_book,
-                        color: Colors.grey,
+                        color: colorScheme.secondary,
                         size: 30,
                       ),
               ),
@@ -314,8 +325,8 @@ class _SearchResultCard extends StatelessWidget {
                       ),
                       decoration: BoxDecoration(
                         color: result.type == 'manga'
-                            ? Colors.blue.shade100
-                            : Colors.green.shade100,
+                            ? const Color(0xFF4F6C73).withValues(alpha: 0.16)
+                            : const Color(0xFF697345).withValues(alpha: 0.16),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Text(
@@ -323,8 +334,8 @@ class _SearchResultCard extends StatelessWidget {
                         style: TextStyle(
                           fontSize: 12,
                           color: result.type == 'manga'
-                              ? Colors.blue.shade700
-                              : Colors.green.shade700,
+                              ? const Color(0xFF4F6C73)
+                              : const Color(0xFF697345),
                           fontWeight: FontWeight.bold,
                         ),
                       ),
@@ -335,7 +346,10 @@ class _SearchResultCard extends StatelessWidget {
                     if (result.authors != null && result.authors!.isNotEmpty)
                       Text(
                         result.authors!.join(', '),
-                        style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: colorScheme.secondary,
+                        ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -345,7 +359,10 @@ class _SearchResultCard extends StatelessWidget {
                         result.description!.isNotEmpty)
                       Text(
                         result.description!,
-                        style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: colorScheme.secondary.withValues(alpha: 0.8),
+                        ),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -357,7 +374,7 @@ class _SearchResultCard extends StatelessWidget {
               IconButton(
                 onPressed: onTap,
                 icon: const Icon(Icons.add_circle),
-                color: Colors.blue,
+                color: colorScheme.primary,
                 tooltip: 'Adicionar',
               ),
             ],

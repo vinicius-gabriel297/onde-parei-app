@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../../services/auth_service.dart';
 import '../../services/firestore_service.dart';
 import '../../models/item_model.dart';
+import '../../widgets/adaptive_network_image.dart';
 import 'edit_item_screen.dart';
 
 class ItemListScreen extends StatefulWidget {
@@ -18,28 +19,22 @@ class _ItemListScreenState extends State<ItemListScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     final authService = Provider.of<AuthService>(context);
     final firestoreService = Provider.of<FirestoreService>(context);
 
     final user = authService.currentUser;
     if (user == null) {
       return const Scaffold(
-        body: Center(
-          child: Text('Usuário não autenticado'),
-        ),
+        body: Center(child: Text('Usuário não autenticado')),
       );
     }
 
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: const Color(0xFF8D6E63), // Antique Brown - mesma cor dos outros headers
-        foregroundColor: Colors.white, // Texto branco para contraste
-        title: const Text(
-          'Meus Itens',
-          style: TextStyle(color: Colors.white),
-        ),
+        title: const Text('Meus Itens'),
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          icon: const Icon(Icons.arrow_back),
           onPressed: () => Navigator.pop(context),
         ),
         actions: [
@@ -64,32 +59,17 @@ class _ItemListScreenState extends State<ItemListScreen> {
                 });
               },
               itemBuilder: (context) => [
-                const PopupMenuItem(
-                  value: 'all',
-                  child: Text('Todos'),
-                ),
+                const PopupMenuItem(value: 'all', child: Text('Todos')),
                 const PopupMenuDivider(),
-                const PopupMenuItem(
-                  value: 'status_0',
-                  child: Text('Lidos'),
-                ),
-                const PopupMenuItem(
-                  value: 'status_1',
-                  child: Text('Lendo'),
-                ),
+                const PopupMenuItem(value: 'status_0', child: Text('Lidos')),
+                const PopupMenuItem(value: 'status_1', child: Text('Lendo')),
                 const PopupMenuItem(
                   value: 'status_2',
                   child: Text('Pretendo ler'),
                 ),
                 const PopupMenuDivider(),
-                const PopupMenuItem(
-                  value: 'type_0',
-                  child: Text('Mangás'),
-                ),
-                const PopupMenuItem(
-                  value: 'type_1',
-                  child: Text('Livros'),
-                ),
+                const PopupMenuItem(value: 'type_0', child: Text('Mangás')),
+                const PopupMenuItem(value: 'type_1', child: Text('Livros')),
               ],
               child: Container(
                 padding: const EdgeInsets.all(8),
@@ -103,16 +83,14 @@ class _ItemListScreenState extends State<ItemListScreen> {
         stream: _getFilteredStream(firestoreService, user.uid),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(
-              child: CircularProgressIndicator(),
-            );
+            return const Center(child: CircularProgressIndicator());
           }
 
           if (snapshot.hasError) {
             return Center(
               child: Text(
                 'Erro ao carregar itens: ${snapshot.error}',
-                style: const TextStyle(color: Colors.red),
+                style: TextStyle(color: colorScheme.error),
               ),
             );
           }
@@ -120,30 +98,30 @@ class _ItemListScreenState extends State<ItemListScreen> {
           final items = snapshot.data ?? [];
 
           if (items.isEmpty) {
-            return const Center(
+            return Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Icon(
                     Icons.library_books,
                     size: 80,
-                    color: Colors.grey,
+                    color: colorScheme.secondary,
                   ),
-                  SizedBox(height: 16),
+                  const SizedBox(height: 16),
                   Text(
                     'Nenhum item encontrado',
                     style: TextStyle(
                       fontSize: 18,
-                      color: Colors.grey,
+                      color: colorScheme.secondary,
                     ),
                   ),
-                  SizedBox(height: 8),
+                  const SizedBox(height: 8),
                   Text(
                     'Adicione seu primeiro mangá ou livro',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: 14,
-                      color: Colors.grey,
+                      color: colorScheme.secondary,
                     ),
                   ),
                 ],
@@ -181,9 +159,15 @@ class _ItemListScreenState extends State<ItemListScreen> {
     );
   }
 
-  Stream<List<ItemModel>> _getFilteredStream(FirestoreService firestoreService, String userId) {
+  Stream<List<ItemModel>> _getFilteredStream(
+    FirestoreService firestoreService,
+    String userId,
+  ) {
     if (_selectedStatusFilter != null) {
-      return firestoreService.getUserItemsByStatus(userId, _selectedStatusFilter!);
+      return firestoreService.getUserItemsByStatus(
+        userId,
+        _selectedStatusFilter!,
+      );
     } else if (_selectedTypeFilter != null) {
       return firestoreService.getUserItemsByType(userId, _selectedTypeFilter!);
     } else {
@@ -191,7 +175,11 @@ class _ItemListScreenState extends State<ItemListScreen> {
     }
   }
 
-  void _showDeleteDialog(BuildContext context, FirestoreService firestoreService, ItemModel item) {
+  void _showDeleteDialog(
+    BuildContext context,
+    FirestoreService firestoreService,
+    ItemModel item,
+  ) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -206,24 +194,28 @@ class _ItemListScreenState extends State<ItemListScreen> {
             onPressed: () async {
               try {
                 await firestoreService.deleteItem(item.id);
+                if (!context.mounted) return;
                 Navigator.pop(context);
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
                     content: Text('Item excluído com sucesso!'),
-                    backgroundColor: Colors.green,
+                    backgroundColor: Color(0xFF697345),
                   ),
                 );
               } catch (e) {
+                if (!context.mounted) return;
                 Navigator.pop(context);
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
                     content: Text('Erro ao excluir item: $e'),
-                    backgroundColor: Colors.red,
+                    backgroundColor: Theme.of(context).colorScheme.error,
                   ),
                 );
               }
             },
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            style: TextButton.styleFrom(
+              foregroundColor: Theme.of(context).colorScheme.error,
+            ),
             child: const Text('Excluir'),
           ),
         ],
@@ -247,6 +239,8 @@ class _ItemCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       child: InkWell(
@@ -262,28 +256,30 @@ class _ItemCard extends StatelessWidget {
                 height: 80,
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(8),
-                  color: Colors.grey.shade200,
+                  color: colorScheme.surface,
                 ),
                 child: item.imageUrl != null
                     ? ClipRRect(
                         borderRadius: BorderRadius.circular(8),
-                        child: Image.network(
-                          item.imageUrl!,
+                        child: AdaptiveNetworkImage(
+                          imageUrl: item.imageUrl!,
                           fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) {
-                            return Container(
-                              color: Colors.grey.shade200,
-                              child: Icon(
-                                item.type == ItemType.manga ? Icons.book : Icons.menu_book,
-                                color: Colors.grey,
-                              ),
-                            );
-                          },
+                          fallback: Container(
+                            color: colorScheme.surface,
+                            child: Icon(
+                              item.type == ItemType.manga
+                                  ? Icons.book
+                                  : Icons.menu_book,
+                              color: colorScheme.secondary,
+                            ),
+                          ),
                         ),
                       )
                     : Icon(
-                        item.type == ItemType.manga ? Icons.book : Icons.menu_book,
-                        color: Colors.grey,
+                        item.type == ItemType.manga
+                            ? Icons.book
+                            : Icons.menu_book,
+                        color: colorScheme.secondary,
                         size: 30,
                       ),
               ),
@@ -314,8 +310,8 @@ class _ItemCard extends StatelessWidget {
                       ),
                       decoration: BoxDecoration(
                         color: item.type == ItemType.manga
-                            ? Colors.blue.shade100
-                            : Colors.green.shade100,
+                            ? const Color(0xFF4F6C73).withValues(alpha: 0.16)
+                            : const Color(0xFF697345).withValues(alpha: 0.16),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Text(
@@ -323,8 +319,8 @@ class _ItemCard extends StatelessWidget {
                         style: TextStyle(
                           fontSize: 12,
                           color: item.type == ItemType.manga
-                              ? Colors.blue.shade700
-                              : Colors.green.shade700,
+                              ? const Color(0xFF4F6C73)
+                              : const Color(0xFF697345),
                           fontWeight: FontWeight.bold,
                         ),
                       ),
@@ -337,7 +333,7 @@ class _ItemCard extends StatelessWidget {
                         item.author!,
                         style: TextStyle(
                           fontSize: 14,
-                          color: Colors.grey[600],
+                          color: colorScheme.secondary,
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -349,7 +345,7 @@ class _ItemCard extends StatelessWidget {
                         item.displayCurrentPosition,
                         style: TextStyle(
                           fontSize: 12,
-                          color: Colors.grey[500],
+                          color: colorScheme.secondary.withValues(alpha: 0.8),
                         ),
                       ),
 
@@ -373,9 +369,14 @@ class _ItemCard extends StatelessWidget {
                 children: [
                   // Status
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
                     decoration: BoxDecoration(
-                      color: _getStatusColor(item.status).withOpacity(0.1),
+                      color: _getStatusColor(
+                        item.status,
+                      ).withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(color: _getStatusColor(item.status)),
                     ),
@@ -410,12 +411,15 @@ class _ItemCard extends StatelessWidget {
                           ],
                         ),
                       ),
-                      const PopupMenuItem(
+                      PopupMenuItem(
                         value: 'delete',
                         child: Row(
                           children: [
-                            Icon(Icons.delete, color: Colors.red),
-                            SizedBox(width: 8),
+                            Icon(
+                              Icons.delete,
+                              color: Theme.of(context).colorScheme.error,
+                            ),
+                            const SizedBox(width: 8),
                             Text('Excluir'),
                           ],
                         ),
@@ -434,11 +438,11 @@ class _ItemCard extends StatelessWidget {
   Color _getStatusColor(ReadingStatus status) {
     switch (status) {
       case ReadingStatus.read:
-        return Colors.green;
+        return const Color(0xFF697345);
       case ReadingStatus.reading:
-        return Colors.orange;
+        return const Color(0xFFBF8F65);
       case ReadingStatus.wantToRead:
-        return Colors.blue;
+        return const Color(0xFF4F6C73);
     }
   }
 }

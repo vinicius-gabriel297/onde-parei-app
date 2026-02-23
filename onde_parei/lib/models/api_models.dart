@@ -26,7 +26,9 @@ class JikanManga {
       title: json['title'] ?? '',
       imageUrl: json['images']?['jpg']?['large_image_url'],
       synopsis: json['synopsis'],
-      authors: json['authors']?.map<String>((author) => author['name'].toString()).toList(),
+      authors: json['authors']
+          ?.map<String>((author) => author['name'].toString())
+          .toList(),
       status: json['status'],
       volumes: json['volumes'],
       chapters: json['chapters'],
@@ -41,9 +43,11 @@ class JikanResponse {
 
   factory JikanResponse.fromJson(Map<String, dynamic> json) {
     return JikanResponse(
-      data: (json['data'] as List<dynamic>?)
-          ?.map((item) => JikanManga.fromJson(item))
-          .toList() ?? [],
+      data:
+          (json['data'] as List<dynamic>?)
+              ?.map((item) => JikanManga.fromJson(item))
+              .toList() ??
+          [],
     );
   }
 }
@@ -74,11 +78,12 @@ class GoogleBook {
 
   factory GoogleBook.fromJson(Map<String, dynamic> json) {
     final volumeInfo = json['volumeInfo'];
+    final imageLinks = volumeInfo?['imageLinks'] as Map<String, dynamic>?;
 
     return GoogleBook(
       id: json['id'] ?? '',
       title: volumeInfo?['title'] ?? '',
-      imageUrl: volumeInfo?['imageLinks']?['thumbnail']?.replaceFirst('http:', 'https:'),
+      imageUrl: _extractBestBookImageUrl(imageLinks),
       description: volumeInfo?['description'],
       authors: volumeInfo?['authors']?.cast<String>(),
       publishedDate: volumeInfo?['publishedDate'],
@@ -86,6 +91,25 @@ class GoogleBook {
       language: volumeInfo?['language'],
       isbn: _extractIsbn(volumeInfo),
     );
+  }
+
+  static String? _extractBestBookImageUrl(Map<String, dynamic>? imageLinks) {
+    if (imageLinks == null) return null;
+
+    final rawUrl =
+        imageLinks['large'] ??
+        imageLinks['medium'] ??
+        imageLinks['small'] ??
+        imageLinks['thumbnail'] ??
+        imageLinks['smallThumbnail'];
+
+    if (rawUrl is! String || rawUrl.trim().isEmpty) return null;
+
+    return rawUrl
+        .replaceFirst('http://', 'https://')
+        .replaceAll('&edge=curl', '')
+        .replaceAll('?edge=curl', '')
+        .replaceAll('zoom=1', 'zoom=2');
   }
 
   static String? _extractIsbn(Map<String, dynamic>? volumeInfo) {
@@ -107,16 +131,15 @@ class GoogleBooksResponse {
   final List<GoogleBook> items;
   final int totalItems;
 
-  GoogleBooksResponse({
-    required this.items,
-    required this.totalItems,
-  });
+  GoogleBooksResponse({required this.items, required this.totalItems});
 
   factory GoogleBooksResponse.fromJson(Map<String, dynamic> json) {
     return GoogleBooksResponse(
-      items: (json['items'] as List<dynamic>?)
-          ?.map((item) => GoogleBook.fromJson(item))
-          .toList() ?? [],
+      items:
+          (json['items'] as List<dynamic>?)
+              ?.map((item) => GoogleBook.fromJson(item))
+              .toList() ??
+          [],
       totalItems: json['totalItems'] ?? 0,
     );
   }
@@ -149,18 +172,25 @@ class MangaDexManga {
   factory MangaDexManga.fromJson(Map<String, dynamic> json) {
     return MangaDexManga(
       id: json['id'] ?? '',
-      title: (json['attributes']?['title'] as Map<String, dynamic>?)?.cast<String, String>() ?? {},
-      description: (json['attributes']?['description'] as Map<String, dynamic>?)?.cast<String, String>(),
+      title:
+          (json['attributes']?['title'] as Map<String, dynamic>?)
+              ?.cast<String, String>() ??
+          {},
+      description: (json['attributes']?['description'] as Map<String, dynamic>?)
+          ?.cast<String, String>(),
       contentRating: json['attributes']?['contentRating'],
       status: json['attributes']?['status'],
       publicationDemographic: json['attributes']?['publicationDemographic'],
-      tags: json['attributes']?['tags']?.map<String>((tag) => tag['attributes']['name']['en'] as String).toList(),
+      tags: json['attributes']?['tags']
+          ?.map<String>((tag) => tag['attributes']['name']['en'] as String)
+          .toList(),
       // Authors e cover serão populados posteriormente se necessário
     );
   }
 
   String getTitle() => title['en'] ?? title.entries.first.value;
-  String? getDescription() => description?['en'] ?? description?.entries.first.value;
+  String? getDescription() =>
+      description?['en'] ?? description?.entries.first.value;
 }
 
 class MangaDexResponse {
@@ -171,9 +201,11 @@ class MangaDexResponse {
 
   factory MangaDexResponse.fromJson(Map<String, dynamic> json) {
     return MangaDexResponse(
-      data: (json['data'] as List<dynamic>?)
-          ?.map((item) => MangaDexManga.fromJson(item))
-          .toList() ?? [],
+      data:
+          (json['data'] as List<dynamic>?)
+              ?.map((item) => MangaDexManga.fromJson(item))
+              .toList() ??
+          [],
       total: json['total'] ?? 0,
     );
   }
@@ -248,7 +280,9 @@ class SearchResult {
       title: manhwa.getTitle(),
       imageUrl: manhwa.coverUrl,
       description: manhwa.getDescription(),
-      authors: manhwa.authors?.map((author) => author['name'] ?? 'Desconhecido').toList(),
+      authors: manhwa.authors
+          ?.map((author) => author['name'] ?? 'Desconhecido')
+          .toList(),
       type: 'manhwa', // or 'manhua' based on tags/demographic
       rawData: {
         'id': manhwa.id,

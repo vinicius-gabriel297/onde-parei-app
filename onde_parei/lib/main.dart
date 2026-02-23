@@ -38,7 +38,9 @@ void main() async {
     // Para desenvolvimento local sem Firebase configurado:
     // await Firebase.initializeApp();
 
-    throw Exception('Firebase não configurado. Siga as instruções no README.md');
+    throw Exception(
+      'Firebase não configurado. Siga as instruções no README.md',
+    );
   }
 
   runApp(const MyApp());
@@ -47,33 +49,29 @@ void main() async {
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
-  // Elegant Book-Inspired Color Palette
+  // Paleta tendência dark editorial solicitada
   static const ColorScheme _lightColorScheme = ColorScheme(
-    primary: Color(0xFF8D6E63),        // Antique Brown
-    secondary: Color(0xFFD7CCC8),      // Light Beige
-    surface: Color(0xFFFAFAFA),        // Clean White
-    background: Color(0xFFFFFBF7),     // Warm Cream
-    error: Color(0xFFBCAAA4),         // Soft Error
-    onPrimary: Color(0xFFFFFFFF),      // White on Antique Brown
-    onSecondary: Color(0xFF3E2723),    // Dark Brown on Beige
-    onSurface: Color(0xFF3E2723),      // Dark Brown Text
-    onBackground: Color(0xFF3E2723),   // Dark Brown Background Text
-    onError: Color(0xFFFFFFFF),        // White on Error
     brightness: Brightness.light,
+    primary: Color(0xFFF2955E),
+    onPrimary: Color(0xFFF2E5BD),
+    secondary: Color(0xFF587370),
+    onSecondary: Color(0xFFF2E5BD),
+    error: Color(0xFFBF4572),
+    onError: Color(0xFF292A40),
+    surface: Color(0xFFF2E5BD),
+    onSurface: Color(0xFF292A40),
   );
 
   static const ColorScheme _darkColorScheme = ColorScheme(
-    primary: Color(0xFFB39DDB),        // Light Purple
-    secondary: Color(0xFF6D4C41),      // Dark Brown
-    surface: Color(0xFF1E1E1E),        // Dark Surface
-    background: Color(0xFF121212),     // Dark Background
-    error: Color(0xFFCF6679),          // Dark Error
-    onPrimary: Color(0xFF1E1E1E),      // Dark Text on Light Purple
-    onSecondary: Color(0xFFE8EAF6),    // Light Text on Dark Brown
-    onSurface: Color(0xFFE8EAF6),      // Light Text on Dark Surface
-    onBackground: Color(0xFFE8EAF6),   // Light Text on Dark Background
-    onError: Color(0xFF1E1E1E),        // Dark Text on Error
     brightness: Brightness.dark,
+    primary: Color(0xFFF2955E),
+    onPrimary: Color(0xFFF2E5BD),
+    secondary: Color(0xFF587370),
+    onSecondary: Color(0xFFF2E5BD),
+    error: Color(0xFFBF4572),
+    onError: Color(0xFF292A40),
+    surface: Color(0xFF292A40),
+    onSurface: Color(0xFFF2E5BD),
   );
 
   static ThemeData _buildElegantTheme(bool isDark) {
@@ -83,7 +81,7 @@ class MyApp extends StatelessWidget {
       useMaterial3: true,
       colorScheme: colorScheme,
       fontFamily: GoogleFonts.crimsonText().fontFamily,
-      scaffoldBackgroundColor: colorScheme.background,
+      scaffoldBackgroundColor: colorScheme.surface,
 
       // Elegant Typography with Serif Fonts
       textTheme: GoogleFonts.crimsonTextTextTheme().copyWith(
@@ -91,19 +89,19 @@ class MyApp extends StatelessWidget {
           fontSize: 32,
           fontWeight: FontWeight.w400,
           height: 1.2,
-          color: colorScheme.onBackground,
+          color: colorScheme.onSurface,
         ),
         headlineMedium: GoogleFonts.crimsonText(
           fontSize: 28,
           fontWeight: FontWeight.w400,
           height: 1.25,
-          color: colorScheme.onBackground,
+          color: colorScheme.onSurface,
         ),
         headlineSmall: GoogleFonts.crimsonText(
           fontSize: 24,
           fontWeight: FontWeight.w500,
           height: 1.3,
-          color: colorScheme.onBackground,
+          color: colorScheme.onSurface,
         ),
         titleLarge: GoogleFonts.libreBaskerville(
           fontSize: 22,
@@ -143,20 +141,19 @@ class MyApp extends StatelessWidget {
         ),
       ),
 
-      // AppBar with Elegant Design
+      dividerColor: colorScheme.secondary.withValues(alpha: 0.25),
+
       appBarTheme: AppBarTheme(
-        backgroundColor: colorScheme.surface,
-        foregroundColor: colorScheme.onSurface,
-        elevation: 0,
+        backgroundColor: colorScheme.primary,
+        foregroundColor: colorScheme.onPrimary,
+        elevation: 1,
         centerTitle: true,
         titleTextStyle: GoogleFonts.crimsonText(
           fontSize: 24,
-          fontWeight: FontWeight.w500,
-          color: colorScheme.onSurface,
+          fontWeight: FontWeight.w600,
+          color: colorScheme.onPrimary,
         ),
-        iconTheme: IconThemeData(
-          color: colorScheme.onSurfaceVariant,
-        ),
+        iconTheme: IconThemeData(color: colorScheme.onPrimary),
       ),
 
       // Elevated Buttons with Book-inspired Design
@@ -180,34 +177,29 @@ class MyApp extends StatelessWidget {
       // Input Decoration with Elegant Borders
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: colorScheme.surfaceVariant.withOpacity(0.3),
+        fillColor: colorScheme.surface,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide.none,
+          borderSide: BorderSide(
+            color: colorScheme.secondary.withValues(alpha: 0.35),
+          ),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(
-            color: colorScheme.primary,
-            width: 2,
-          ),
+          borderSide: BorderSide(color: colorScheme.primary, width: 2),
         ),
-        labelStyle: GoogleFonts.libreFranklin(
-          color: colorScheme.onSurfaceVariant,
-        ),
+        labelStyle: GoogleFonts.libreFranklin(color: colorScheme.onSurface),
         hintStyle: GoogleFonts.libreFranklin(
-          color: colorScheme.onSurfaceVariant.withOpacity(0.7),
+          color: colorScheme.onSurface.withValues(alpha: 0.7),
         ),
       ),
 
       // Card Design Inspired by Bookmarks
       cardTheme: CardThemeData(
-        color: colorScheme.surface,
+        color: isDark ? const Color(0xFF32344D) : const Color(0xFFE9DCB4),
         elevation: 2,
-        shadowColor: colorScheme.shadow.withOpacity(0.3),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
+        shadowColor: colorScheme.primary.withValues(alpha: 0.18),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         margin: const EdgeInsets.only(bottom: 12),
       ),
 
@@ -215,9 +207,7 @@ class MyApp extends StatelessWidget {
       floatingActionButtonTheme: FloatingActionButtonThemeData(
         backgroundColor: colorScheme.primary,
         foregroundColor: colorScheme.onPrimary,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         elevation: 4,
       ),
 
@@ -234,14 +224,14 @@ class MyApp extends StatelessWidget {
 
       // Snackbar with Elegant Design
       snackBarTheme: SnackBarThemeData(
-        backgroundColor: colorScheme.secondaryContainer,
+        backgroundColor: isDark
+            ? const Color(0xFF587370)
+            : const Color(0xFF292A40),
         contentTextStyle: GoogleFonts.libreFranklin(
-          color: colorScheme.onSecondaryContainer,
+          color: const Color(0xFFF2E5BD),
           fontSize: 14,
         ),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         behavior: SnackBarBehavior.floating,
       ),
 
@@ -257,9 +247,7 @@ class MyApp extends StatelessWidget {
           fontSize: 14,
           color: colorScheme.onSurfaceVariant,
         ),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
     );
   }
@@ -269,36 +257,29 @@ class MyApp extends StatelessWidget {
     return ChangeNotifierProvider(
       create: (_) => ThemeNotifier(),
       child: Consumer<ThemeNotifier>(
-        builder: (context, themeNotifier, child) =>
-          MultiProvider(
-            providers: [
-              Provider<AuthService>(
-                create: (_) => AuthService(),
-              ),
-              Provider<FirestoreService>(
-                create: (_) => FirestoreService(),
-              ),
-              Provider<ApiService>(
-                create: (_) => ApiService(),
-              ),
-              Provider<SettingsService>(
-                create: (_) => SettingsService(),
-              ),
-            ],
-            child: MaterialApp(
-              title: 'Onde Parei?',
-              debugShowCheckedModeBanner: false,
-              theme: _buildElegantTheme(false),
-              darkTheme: _buildElegantTheme(true),
-              themeMode: themeNotifier.isDarkMode ? ThemeMode.dark : ThemeMode.light,
-              home: const AuthWrapper(),
-              routes: {
-                '/login': (context) => const LoginScreen(),
-                '/signup': (context) => const SignupScreen(),
-                '/home': (context) => const HomeScreen(),
-              },
-            ),
+        builder: (context, themeNotifier, child) => MultiProvider(
+          providers: [
+            Provider<AuthService>(create: (_) => AuthService()),
+            Provider<FirestoreService>(create: (_) => FirestoreService()),
+            Provider<ApiService>(create: (_) => ApiService()),
+            Provider<SettingsService>(create: (_) => SettingsService()),
+          ],
+          child: MaterialApp(
+            title: 'Onde Parei?',
+            debugShowCheckedModeBanner: false,
+            theme: _buildElegantTheme(false),
+            darkTheme: _buildElegantTheme(true),
+            themeMode: themeNotifier.isDarkMode
+                ? ThemeMode.dark
+                : ThemeMode.light,
+            home: const AuthWrapper(),
+            routes: {
+              '/login': (context) => const LoginScreen(),
+              '/signup': (context) => const SignupScreen(),
+              '/home': (context) => const HomeScreen(),
+            },
           ),
+        ),
       ),
     );
   }
@@ -325,11 +306,7 @@ class AuthWrapper extends StatelessWidget {
         }
 
         // Loading screen
-        return const Scaffold(
-          body: Center(
-            child: CircularProgressIndicator(),
-          ),
-        );
+        return const Scaffold(body: Center(child: CircularProgressIndicator()));
       },
     );
   }
