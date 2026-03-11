@@ -2,29 +2,37 @@
 import 'dart:async';
 import 'package:http/http.dart' as http;
 import '../models/api_models.dart';
+import '../config/api_keys.dart';
 
 class ApiService {
   static const String jikanBaseUrl = 'https://api.jikan.moe/v4';
-  static const String googleBooksBaseUrl = 'https://www.googleapis.com/books/v1';
+  static const String openLibraryBaseUrl = 'https://openlibrary.org';
   static const String manhwaManhuaBaseUrl = 'https://api.mangadex.org';
+  static const String _googleBooksBaseUrl =
+      'https://www.googleapis.com/books/v1';
 
   // Controlador simples de rate limiting
   static DateTime _lastRequest = DateTime.now();
 
   // Buscar mang├ís na Jikan API com controle de rate limiting
-  static Future<List<JikanManga>> searchMangas(String query, {int limit = 10}) async {
+  static Future<List<JikanManga>> searchMangas(
+    String query, {
+    int limit = 10,
+  }) async {
     try {
       // Rate limiting: m├¡nimo 1 segundo entre requisi├º├Áes
       final now = DateTime.now();
       final timeSinceLastRequest = now.difference(_lastRequest);
       if (timeSinceLastRequest.inMilliseconds < 1000) {
-        await Future.delayed(Duration(milliseconds: 1000 - timeSinceLastRequest.inMilliseconds));
+        await Future.delayed(
+          Duration(milliseconds: 1000 - timeSinceLastRequest.inMilliseconds),
+        );
       }
       _lastRequest = DateTime.now();
 
-      final response = await http.get(
-        Uri.parse('$jikanBaseUrl/manga?q=$query&limit=$limit'),
-      ).timeout(const Duration(seconds: 10));
+      final response = await http
+          .get(Uri.parse('$jikanBaseUrl/manga?q=$query&limit=$limit'))
+          .timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
@@ -48,61 +56,104 @@ class ApiService {
     }
   }
 
-  // Buscar livros na Google Books API com fallback para dados de exemplo
-  static Future<List<GoogleBook>> searchBooks(String query, {int maxResults = 10}) async {
+  // Buscar livros na Google Books API (fonte primária)
+  static Future<List<GoogleBook>> _searchBooksFromGoogle(
+    String query, {
+    int maxResults = 10,
+  }) async {
+    final keyParam = ApiKeys.googleBooks.isNotEmpty
+        ? '&key=${ApiKeys.googleBooks}'
+        : '';
+    final uri = Uri.parse(
+      '$_googleBooksBaseUrl/volumes?q=${Uri.encodeComponent(query)}&maxResults=$maxResults&orderBy=relevance$keyParam',
+    );
+    final response = await http.get(uri).timeout(const Duration(seconds: 10));
+
+    if (response.statusCode == 200) {
+      final data = json.decode(response.body);
+      final googleResponse = GoogleBooksResponse.fromJson(
+        data as Map<String, dynamic>,
+      );
+      return googleResponse.items
+          .where((book) => book.title.trim().isNotEmpty)
+          .toList();
+    } else {
+      throw Exception('Google Books: ${response.statusCode}');
+    }
+  }
+
+  // Buscar livros na Open Library API (fallback)
+  static Future<List<GoogleBook>> _searchBooksFromOpenLibrary(
+    String query, {
+    int maxResults = 10,
+  }) async {
+    final response = await http
+        .get(
+          Uri.parse(
+            '$openLibraryBaseUrl/search.json?q=${Uri.encodeComponent(query)}&limit=$maxResults',
+          ),
+        )
+        .timeout(const Duration(seconds: 10));
+
+    if (response.statusCode == 200) {
+      final data = json.decode(response.body);
+      final docs = (data['docs'] as List<dynamic>? ?? []);
+      return docs
+          .map((doc) => GoogleBook.fromJson(doc as Map<String, dynamic>))
+          .where((book) => book.title.trim().isNotEmpty)
+          .toList();
+    } else {
+      throw Exception('Open Library: ${response.statusCode}');
+    }
+  }
+
+  // Buscar livros — tenta Google Books e cai no Open Library se falhar
+  static Future<List<GoogleBook>> searchBooks(
+    String query, {
+    int maxResults = 10,
+  }) async {
     try {
-      // Rate limiting: m├¡nimo 1 segundo entre requisi├º├Áes
-      final now = DateTime.now();
-      final timeSinceLastRequest = now.difference(_lastRequest);
-      if (timeSinceLastRequest.inMilliseconds < 1000) {
-        await Future.delayed(Duration(milliseconds: 1000 - timeSinceLastRequest.inMilliseconds));
-      }
-      _lastRequest = DateTime.now();
-
-      final response = await http.get(
-        Uri.parse('$googleBooksBaseUrl/volumes?q=${Uri.encodeComponent(query)}&maxResults=$maxResults'),
-      ).timeout(const Duration(seconds: 10));
-
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        final booksResponse = GoogleBooksResponse.fromJson(data);
-        return booksResponse.items;
-      } else if (response.statusCode == 429) {
-        // Rate limited - usar dados de exemplo
-        print('ÔÜá´©Å Google Books API quota exceeded, usando dados de exemplo');
-        return _getSampleBooks(query);
-      } else {
-        throw Exception('Erro ao buscar livros: ${response.statusCode}');
-      }
-    } catch (e) {
-      if (e.toString().contains('TimeoutException')) {
-        print('ÔÜá´©Å Timeout na Google Books API, usando dados de exemplo');
-        return _getSampleBooks(query);
-      } else if (e.toString().contains('SocketException')) {
-        print('ÔÜá´©Å Erro de conex├úo na Google Books API, usando dados de exemplo');
-        return _getSampleBooks(query);
-      } else {
-        print('ÔÜá´©Å Erro na Google Books API, usando dados de exemplo: $e');
-        return _getSampleBooks(query);
+      final results = await _searchBooksFromGoogle(
+        query,
+        maxResults: maxResults,
+      );
+      if (results.isNotEmpty) return results;
+      // Retornou vazio (sem resultados na GB) → tentar Open Library
+      return await _searchBooksFromOpenLibrary(query, maxResults: maxResults);
+    } catch (_) {
+      // Google Books falhou → fallback para Open Library
+      try {
+        return await _searchBooksFromOpenLibrary(query, maxResults: maxResults);
+      } catch (e) {
+        throw Exception('Erro ao buscar livros: $e');
       }
     }
   }
 
   // Buscar manhwa/manhua na MangaDex API
-  static Future<List<MangaDexManga>> searchManhwaManhua(String query, {int limit = 10}) async {
+  static Future<List<MangaDexManga>> searchManhwaManhua(
+    String query, {
+    int limit = 10,
+  }) async {
     try {
       // Rate limiting: m├¡nimo 1 segundo entre requisi├º├Áes
       final now = DateTime.now();
       final timeSinceLastRequest = now.difference(_lastRequest);
       if (timeSinceLastRequest.inMilliseconds < 1000) {
-        await Future.delayed(Duration(milliseconds: 1000 - timeSinceLastRequest.inMilliseconds));
+        await Future.delayed(
+          Duration(milliseconds: 1000 - timeSinceLastRequest.inMilliseconds),
+        );
       }
       _lastRequest = DateTime.now();
 
       // MangaDex API request
-      final response = await http.get(
-        Uri.parse('$manhwaManhuaBaseUrl/manga?title=$query&includes[]=cover_art&includes[]=author&includes[]=artist&limit=$limit'),
-      ).timeout(const Duration(seconds: 10));
+      final response = await http
+          .get(
+            Uri.parse(
+              '$manhwaManhuaBaseUrl/manga?title=$query&includes[]=cover_art&includes[]=author&includes[]=artist&limit=$limit',
+            ),
+          )
+          .timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
@@ -114,17 +165,19 @@ class ApiService {
           final coverUrl = await _getMangaDexCoverUrl(manga.id);
           final authors = await _getMangaDexAuthors(manga.id);
 
-          completeMangas.add(MangaDexManga(
-            id: manga.id,
-            title: manga.title,
-            description: manga.description,
-            coverUrl: coverUrl,
-            authors: authors,
-            contentRating: manga.contentRating,
-            status: manga.status,
-            publicationDemographic: manga.publicationDemographic,
-            tags: manga.tags,
-          ));
+          completeMangas.add(
+            MangaDexManga(
+              id: manga.id,
+              title: manga.title,
+              description: manga.description,
+              coverUrl: coverUrl,
+              authors: authors,
+              contentRating: manga.contentRating,
+              status: manga.status,
+              publicationDemographic: manga.publicationDemographic,
+              tags: manga.tags,
+            ),
+          );
         }
 
         return completeMangas;
@@ -158,7 +211,6 @@ class ApiService {
         final data = json.decode(response.body);
         final covers = data['data'] as List<dynamic>?;
         if (covers != null && covers.isNotEmpty) {
-          final coverId = covers[0]['id'];
           final filename = covers[0]['attributes']['fileName'];
           return 'https://uploads.mangadex.org/covers/$mangaId/$filename.256.jpg';
         }
@@ -170,10 +222,14 @@ class ApiService {
   }
 
   // Buscar autores do MangaDex
-  static Future<List<Map<String, String>>?> _getMangaDexAuthors(String mangaId) async {
+  static Future<List<Map<String, String>>?> _getMangaDexAuthors(
+    String mangaId,
+  ) async {
     try {
       final response = await http.get(
-        Uri.parse('$manhwaManhuaBaseUrl/manga/$mangaId?includes[]=author&includes[]=artist'),
+        Uri.parse(
+          '$manhwaManhuaBaseUrl/manga/$mangaId?includes[]=author&includes[]=artist',
+        ),
       );
 
       if (response.statusCode == 200) {
@@ -209,67 +265,6 @@ class ApiService {
     }
   }
 
-  // Dados de exemplo para quando a API falhar
-  static List<GoogleBook> _getSampleBooks(String query) {
-    // Filtrar livros de exemplo baseados na query
-    final sampleData = [
-      {
-        'id': '1',
-        'volumeInfo': {
-          'title': 'Flutter Apprentice',
-          'authors': ['Michael Katz', 'Kevin D. Moore'],
-          'publishedDate': '2023',
-          'description': 'Learn to build beautiful, natively compiled applications for iOS and Android with Flutter.',
-          'pageCount': 500,
-          'language': 'en',
-          'imageLinks': {
-            'thumbnail': 'https://via.placeholder.com/128x192/4A90E2/FFFFFF?text=Flutter+Apprentice'
-          },
-          'industryIdentifiers': [
-            {'type': 'ISBN_13', 'identifier': '9781950325740'}
-          ]
-        }
-      },
-      {
-        'id': '2',
-        'volumeInfo': {
-          'title': 'Dart Programming Language',
-          'authors': ['Dart Team'],
-          'publishedDate': '2022',
-          'description': 'Official guide to the Dart programming language.',
-          'pageCount': 150,
-          'language': 'en',
-          'imageLinks': {
-            'thumbnail': 'https://via.placeholder.com/128x192/FF6B35/FFFFFF?text=Dart+Guide'
-          },
-          'industryIdentifiers': [
-            {'type': 'ISBN_13', 'identifier': '9780123456789'}
-          ]
-        }
-      },
-      {
-        'id': '3',
-        'volumeInfo': {
-          'title': 'Mobile Development with Flutter',
-          'authors': ['John Smith', 'Jane Doe'],
-          'publishedDate': '2024',
-          'description': 'Comprehensive guide to building cross-platform mobile applications.',
-          'pageCount': 350,
-          'language': 'en',
-          'imageLinks': {
-            'thumbnail': 'https://via.placeholder.com/128x192/10B981/FFFFFF?text=Flutter+Mobile'
-          },
-          'industryIdentifiers': [
-            {'type': 'ISBN_13', 'identifier': '9789876543210'}
-          ]
-        }
-      },
-    ];
-
-    // Converter para GoogleBook
-    return sampleData.map((data) => GoogleBook.fromJson(data)).toList();
-  }
-
   // Busca unificada PARALELA (mais r├ípida) para melhor UX
   static Future<List<SearchResult>> searchAll(String query) async {
     try {
@@ -281,25 +276,28 @@ class ApiService {
         searchMangas(query, limit: 4)
             .then((mangas) => mangas.map(SearchResult.fromManga).toList())
             .catchError((error) {
-          print('Erro ao buscar mang├ís: $error');
-          return <SearchResult>[];
-        }),
+              print('Erro ao buscar mang├ís: $error');
+              return <SearchResult>[];
+            }),
 
         // Buscar manhwa/manhua PARALELO (MangaDex API) - COREANO/CHIN├èS
         searchManhwaManhua(query, limit: 6)
-            .then((manhwaManhua) => manhwaManhua.map(SearchResult.fromMangaDex).toList())
+            .then(
+              (manhwaManhua) =>
+                  manhwaManhua.map(SearchResult.fromMangaDex).toList(),
+            )
             .catchError((error) {
-          print('Erro ao buscar manhwa/manhua: $error');
-          return <SearchResult>[];
-        }),
+              print('Erro ao buscar manhwa/manhua: $error');
+              return <SearchResult>[];
+            }),
 
         // Buscar livros PARALELO
         searchBooks(query, maxResults: 5)
             .then((books) => books.map(SearchResult.fromBook).toList())
             .catchError((error) {
-          print('Erro ao buscar livros: $error');
-          return <SearchResult>[];
-        }),
+              print('Erro ao buscar livros: $error');
+              return <SearchResult>[];
+            }),
       ];
 
       // Aguardar TODAS as buscas terminarem simultaneamente
@@ -311,14 +309,55 @@ class ApiService {
       }
 
       if (results.isEmpty) {
-        throw Exception('Nenhum resultado encontrado. Tente outros termos de busca.');
+        throw Exception(
+          'Nenhum resultado encontrado. Tente outros termos de busca.',
+        );
       }
 
-      // Ordenar resultados: mostrar diferentes tipos primeiro (mais diversidade)
+      // Ordenar resultados: priorizar LIVROS primeiro e popularidade dos livros
       results.sort((a, b) {
-        // Priorizar ordem: manga -> manhwa -> book
-        final order = {'manga': 1, 'manhwa': 2, 'book': 3};
-        return (order[a.type] ?? 999).compareTo(order[b.type] ?? 999);
+        final order = {'book': 1, 'manga': 2, 'manhwa': 3};
+        final typeCompare = (order[a.type] ?? 999).compareTo(
+          order[b.type] ?? 999,
+        );
+
+        // Tipos diferentes: livros primeiro
+        if (typeCompare != 0) return typeCompare;
+
+        // Mesmo tipo 'book': tentar ordenar por popularidade
+        if (a.type == 'book') {
+          final aRatingsCount = _asInt(a.rawData?['ratingsCount']) ?? 0;
+          final bRatingsCount = _asInt(b.rawData?['ratingsCount']) ?? 0;
+          if (aRatingsCount != bRatingsCount) {
+            return bRatingsCount.compareTo(aRatingsCount);
+          }
+
+          final aWantToRead = _asInt(a.rawData?['wantToReadCount']) ?? 0;
+          final bWantToRead = _asInt(b.rawData?['wantToReadCount']) ?? 0;
+          if (aWantToRead != bWantToRead) {
+            return bWantToRead.compareTo(aWantToRead);
+          }
+
+          final aAlreadyRead = _asInt(a.rawData?['alreadyReadCount']) ?? 0;
+          final bAlreadyRead = _asInt(b.rawData?['alreadyReadCount']) ?? 0;
+          if (aAlreadyRead != bAlreadyRead) {
+            return bAlreadyRead.compareTo(aAlreadyRead);
+          }
+
+          final aEditionCount = _asInt(a.rawData?['editionCount']) ?? 0;
+          final bEditionCount = _asInt(b.rawData?['editionCount']) ?? 0;
+          if (aEditionCount != bEditionCount) {
+            return bEditionCount.compareTo(aEditionCount);
+          }
+
+          final aAverageRating = _asDouble(a.rawData?['averageRating']) ?? 0;
+          final bAverageRating = _asDouble(b.rawData?['averageRating']) ?? 0;
+          if (aAverageRating != bAverageRating) {
+            return bAverageRating.compareTo(aAverageRating);
+          }
+        }
+
+        return a.title.toLowerCase().compareTo(b.title.toLowerCase());
       });
 
       return results;
@@ -327,12 +366,26 @@ class ApiService {
     }
   }
 
+  static int? _asInt(dynamic value) {
+    if (value == null) return null;
+    if (value is int) return value;
+    if (value is double) return value.toInt();
+    if (value is String) return int.tryParse(value);
+    return null;
+  }
+
+  static double? _asDouble(dynamic value) {
+    if (value == null) return null;
+    if (value is double) return value;
+    if (value is int) return value.toDouble();
+    if (value is String) return double.tryParse(value);
+    return null;
+  }
+
   // Buscar mang├í espec├¡fico por ID
   static Future<JikanManga?> getMangaById(int malId) async {
     try {
-      final response = await http.get(
-        Uri.parse('$jikanBaseUrl/manga/$malId'),
-      );
+      final response = await http.get(Uri.parse('$jikanBaseUrl/manga/$malId'));
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
@@ -346,16 +399,23 @@ class ApiService {
     }
   }
 
-  // Buscar livro espec├¡fico por ID
+  // Buscar livro espec├¡fico por ID (Open Library work id)
   static Future<GoogleBook?> getBookById(String bookId) async {
     try {
       final response = await http.get(
-        Uri.parse('$googleBooksBaseUrl/volumes/$bookId'),
+        Uri.parse('$openLibraryBaseUrl/works/$bookId.json'),
       );
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-        return GoogleBook.fromJson(data);
+        return GoogleBook.fromJson({
+          'key': '/works/$bookId',
+          'title': data['title']?.toString() ?? '',
+          'first_publish_year': data['first_publish_date']?.toString(),
+          'description': data['description'] is Map
+              ? data['description']['value']?.toString()
+              : data['description']?.toString(),
+        });
       } else {
         return null;
       }

@@ -12,7 +12,7 @@ import 'screens/auth/signup_screen.dart';
 import 'screens/home/home_screen.dart';
 
 class ThemeNotifier with ChangeNotifier {
-  bool _isDarkMode = false;
+  bool _isDarkMode = true; // Biblioteca Clássica — dark mode por padrão
 
   bool get isDarkMode => _isDarkMode;
 
@@ -49,29 +49,33 @@ void main() async {
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
-  // Paleta tendência dark editorial solicitada
+  // Paleta Biblioteca Clássica — couro envelhecido, papel creme, verde-musgo
   static const ColorScheme _lightColorScheme = ColorScheme(
     brightness: Brightness.light,
-    primary: Color(0xFFF2955E),
-    onPrimary: Color(0xFFF2E5BD),
-    secondary: Color(0xFF587370),
-    onSecondary: Color(0xFFF2E5BD),
-    error: Color(0xFFBF4572),
-    onError: Color(0xFF292A40),
-    surface: Color(0xFFF2E5BD),
-    onSurface: Color(0xFF292A40),
+    primary: Color(0xFF7A4E1F), // couro marrom
+    onPrimary: Color(0xFFF5EDD6),
+    secondary: Color(0xFF3D5C36), // verde-musgo profundo
+    onSecondary: Color(0xFFF5EDD6),
+    error: Color(0xFF9E2B2B),
+    onError: Color(0xFFF5EDD6),
+    surface: Color(0xFFF5EDD6), // papel creme
+    onSurface: Color(0xFF1A1410),
+    surfaceContainerHighest: Color(0xFFEDE0C0), // cartão claro
+    onSurfaceVariant: Color(0xFF5C4A32),
   );
 
   static const ColorScheme _darkColorScheme = ColorScheme(
     brightness: Brightness.dark,
-    primary: Color(0xFFF2955E),
-    onPrimary: Color(0xFFF2E5BD),
-    secondary: Color(0xFF587370),
-    onSecondary: Color(0xFFF2E5BD),
-    error: Color(0xFFBF4572),
-    onError: Color(0xFF292A40),
-    surface: Color(0xFF292A40),
-    onSurface: Color(0xFFF2E5BD),
+    primary: Color(0xFFC8A45A), // ouro envelhecido / dourado
+    onPrimary: Color(0xFF1A1410),
+    secondary: Color(0xFF587A52), // verde-musgo
+    onSecondary: Color(0xFFF0E8D0),
+    error: Color(0xFFCC4444),
+    onError: Color(0xFFF0E8D0),
+    surface: Color(0xFF1A1410), // couro escuro
+    onSurface: Color(0xFFF0E8D0), // papel creme
+    surfaceContainerHighest: Color(0xFF2C2318), // cartão escuro
+    onSurfaceVariant: Color(0xFFB89E78), // pergaminho
   );
 
   static ThemeData _buildElegantTheme(bool isDark) {
@@ -196,7 +200,7 @@ class MyApp extends StatelessWidget {
 
       // Card Design Inspired by Bookmarks
       cardTheme: CardThemeData(
-        color: isDark ? const Color(0xFF32344D) : const Color(0xFFE9DCB4),
+        color: isDark ? const Color(0xFF2C2318) : const Color(0xFFEDE0C0),
         elevation: 2,
         shadowColor: colorScheme.primary.withValues(alpha: 0.18),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -225,8 +229,8 @@ class MyApp extends StatelessWidget {
       // Snackbar with Elegant Design
       snackBarTheme: SnackBarThemeData(
         backgroundColor: isDark
-            ? const Color(0xFF587370)
-            : const Color(0xFF292A40),
+            ? const Color(0xFF587A52)
+            : const Color(0xFF1A1410),
         contentTextStyle: GoogleFonts.libreFranklin(
           color: const Color(0xFFF2E5BD),
           fontSize: 14,

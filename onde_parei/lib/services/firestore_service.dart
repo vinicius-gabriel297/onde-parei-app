@@ -1,11 +1,16 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/item_model.dart';
+import '../models/api_models.dart';
 
 class FirestoreService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
 
   // Coleção de itens
   CollectionReference get _itemsCollection => _db.collection('items');
+
+  // Coleção de catálogo compartilhado de livros
+  CollectionReference get _bookCatalogCollection =>
+      _db.collection('book_catalog');
 
   // Adicionar novo item
   Future<String> addItem(ItemModel item) async {
@@ -187,6 +192,82 @@ class FirestoreService {
       } else {
         throw Exception('Erro ao buscar estatísticas: $e');
       }
+    }
+  }
+
+  // Salva (ou atualiza) um livro no catálogo compartilhado. Fire-and-forget seguro.
+  Future<void> upsertBookToCatalog(SearchResult result, String userId) async {
+    try {
+      final docRef = _bookCatalogCollection.doc(result.id);
+      final data = <String, dynamic>{
+        'externalId': result.id,
+        'title': result.title,
+        'titleLower': result.title.toLowerCase(),
+        'imageUrl': result.imageUrl,
+        'description': result.description,
+        'authors': result.authors ?? [],
+        'addedBy': userId,
+        'addedAt': FieldValue.serverTimestamp(),
+      };
+
+      final raw = result.rawData;
+      if (raw != null) {
+        if (raw['publishedDate'] != null) {
+          data['publishedDate'] = raw['publishedDate'].toString();
+        }
+        if (raw['pageCount'] != null) data['pageCount'] = raw['pageCount'];
+        if (raw['averageRating'] != null) {
+          data['averageRating'] = raw['averageRating'];
+        }
+        if (raw['genres'] is List) data['genres'] = raw['genres'];
+      }
+
+      await docRef.set(data, SetOptions(merge: true));
+    } catch (_) {
+      // Falha silenciosa — não impede o usuário de salvar seu item
+    }
+  }
+
+  // Busca livros no catálogo compartilhado por prefixo de título
+  Future<List<SearchResult>> searchBookCatalog(
+    String query, {
+    int limit = 10,
+  }) async {
+    try {
+      final q = query.toLowerCase().trim();
+      if (q.isEmpty) return [];
+
+      final snapshot = await _bookCatalogCollection
+          .where('titleLower', isGreaterThanOrEqualTo: q)
+          .where('titleLower', isLessThanOrEqualTo: '$q\uf8ff')
+          .limit(limit)
+          .get();
+
+      return snapshot.docs
+          .map((doc) {
+            final d = doc.data() as Map<String, dynamic>;
+            final authors = (d['authors'] as List<dynamic>?)
+                ?.map((e) => e.toString())
+                .toList();
+            return SearchResult(
+              id: d['externalId']?.toString() ?? doc.id,
+              title: d['title']?.toString() ?? '',
+              imageUrl: d['imageUrl']?.toString(),
+              description: d['description']?.toString(),
+              authors: authors,
+              type: 'book',
+              rawData: {
+                'publishedDate': d['publishedDate'],
+                'pageCount': d['pageCount'],
+                'averageRating': d['averageRating'],
+                'genres': d['genres'],
+              },
+            );
+          })
+          .where((r) => r.title.isNotEmpty)
+          .toList();
+    } catch (_) {
+      return [];
     }
   }
 

@@ -6,7 +6,7 @@ import '../../services/settings_service.dart';
 import '../../models/user_settings.dart';
 
 class ThemeNotifier with ChangeNotifier {
-  bool _isDarkMode = false;
+  bool _isDarkMode = true;
 
   bool get isDarkMode => _isDarkMode;
 
@@ -128,7 +128,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Configurações'),
+        title: const Text('Meu Canto de Leitura'),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () => Navigator.pop(context),
@@ -248,7 +248,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Sobre',
+                        'Sobre o Onde Parei',
                         style: Theme.of(context).textTheme.titleMedium,
                       ),
                       const SizedBox(height: 16),
@@ -260,7 +260,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       ListTile(
                         leading: const Icon(Icons.code),
                         title: const Text('Desenvolvido com'),
-                        subtitle: const Text('Flutter & Firebase'),
+                        subtitle: const Text(
+                          'Flutter & Firebase — feito por um leitor, para outros leitores.',
+                        ),
                       ),
                       const SizedBox(height: 8),
                       SizedBox(
@@ -324,10 +326,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             final shouldLogout = await showDialog<bool>(
                               context: context,
                               builder: (context) => AlertDialog(
-                                title: const Text('Sair da conta'),
+                                title: const Text('Fechar o livro?'),
                                 content: const Text(
-                                  'Tem certeza que quer sair da sua conta? '
-                                  'Você precisará fazer login novamente.',
+                                  'Você sairá do app. Não se preocupe — '
+                                  'sua estante estará aqui quando voltar.',
                                 ),
                                 actions: [
                                   TextButton(
@@ -420,7 +422,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         ),
                       )
                     : const Text(
-                        'Salvar Configurações',
+                        'Salvar preferências',
                         style: TextStyle(fontSize: 16),
                       ),
               ),

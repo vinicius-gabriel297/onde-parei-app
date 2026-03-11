@@ -32,7 +32,7 @@ class _ItemListScreenState extends State<ItemListScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Meus Itens'),
+        title: const Text('Minha Estante'),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () => Navigator.pop(context),
@@ -103,25 +103,26 @@ class _ItemListScreenState extends State<ItemListScreen> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Icon(
-                    Icons.library_books,
+                    Icons.menu_book_rounded,
                     size: 80,
-                    color: colorScheme.secondary,
+                    color: colorScheme.primary.withValues(alpha: 0.4),
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 18),
                   Text(
-                    'Nenhum item encontrado',
+                    'Esta prateleira está vazia...',
                     style: TextStyle(
                       fontSize: 18,
-                      color: colorScheme.secondary,
+                      color: colorScheme.onSurface,
                     ),
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Adicione seu primeiro mangá ou livro',
+                    'Os livros certos ainda estão por vir.',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: 14,
-                      color: colorScheme.secondary,
+                      fontStyle: FontStyle.italic,
+                      color: colorScheme.onSurfaceVariant,
                     ),
                   ),
                 ],
@@ -155,7 +156,7 @@ class _ItemListScreenState extends State<ItemListScreen> {
           );
         },
       ),
-      // Removed floating action button since we have the "Meus Itens" view
+      // Removed floating action button since we have the "Meus Livros" view
     );
   }
 
@@ -183,12 +184,12 @@ class _ItemListScreenState extends State<ItemListScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Excluir Item'),
-        content: Text('Tem certeza que deseja excluir "${item.name}"?'),
+        title: const Text('Remover da estante'),
+        content: Text('Deseja remover "${item.name}" da sua estante?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancelar'),
+            child: const Text('Manter'),
           ),
           TextButton(
             onPressed: () async {
@@ -198,8 +199,8 @@ class _ItemListScreenState extends State<ItemListScreen> {
                 Navigator.pop(context);
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
-                    content: Text('Item excluído com sucesso!'),
-                    backgroundColor: Color(0xFF697345),
+                    content: Text('Removido da estante.'),
+                    backgroundColor: Color(0xFF587A52),
                   ),
                 );
               } catch (e) {

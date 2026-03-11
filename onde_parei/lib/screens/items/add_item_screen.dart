@@ -130,6 +130,13 @@ class _AddItemScreenState extends State<AddItemScreen> {
 
       await firestoreService.addItem(item);
 
+      // Cachear livro no catálogo compartilhado (fire-and-forget)
+      if (_selectedType == ItemType.book && widget.searchResult != null) {
+        firestoreService
+            .upsertBookToCatalog(widget.searchResult!, user.uid)
+            .ignore();
+      }
+
       Navigator.pop(context);
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -154,7 +161,7 @@ class _AddItemScreenState extends State<AddItemScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Adicionar Item'),
+        title: const Text('Adicionar à Estante'),
         leading: IconButton(
           icon: const Icon(Icons.close),
           onPressed: () => Navigator.pop(context),
@@ -340,7 +347,10 @@ class _AddItemScreenState extends State<AddItemScreen> {
                           ),
                         ),
                       )
-                    : const Text('Salvar Item', style: TextStyle(fontSize: 16)),
+                    : const Text(
+                        'Guardar na Estante',
+                        style: TextStyle(fontSize: 16),
+                      ),
               ),
             ],
           ),

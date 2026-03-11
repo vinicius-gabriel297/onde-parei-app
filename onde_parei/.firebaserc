@@ -1,9 +1,9 @@
 {
   "projects": {
-    "default": "onde-parei-app-26c6e"
+    "default": "onde-parei-ea32c"
   },
   "targets": {
-    "onde-parei-app-26c6e": {
+    "onde-parei-ea32c": {
       "hosting": {
         "ondeparei": [
           "ondeparei"

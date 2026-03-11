@@ -97,24 +97,33 @@ class _LoginScreenState extends State<LoginScreen> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 // Logo/Título
-                const Icon(Icons.book, size: 80, color: Color(0xFF4F6C73)),
-                const SizedBox(height: 24),
+                Icon(
+                  Icons.menu_book_rounded,
+                  size: 72,
+                  color: colorScheme.primary,
+                ),
+                const SizedBox(height: 20),
                 Text(
                   'Onde Parei?',
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                    fontSize: 32,
-                    fontWeight: FontWeight.bold,
-                    color: colorScheme.onBackground,
+                    fontSize: 34,
+                    fontWeight: FontWeight.w600,
+                    color: colorScheme.onSurface,
                   ),
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 10),
                 Text(
-                  'Gerencie seus mangás e livros',
+                  'Cada livro é uma jornada.\nVamos guardar a sua.',
                   textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 16, color: colorScheme.secondary),
+                  style: TextStyle(
+                    fontSize: 16,
+                    color: colorScheme.onSurfaceVariant,
+                    fontStyle: FontStyle.italic,
+                    height: 1.5,
+                  ),
                 ),
-                const SizedBox(height: 48),
+                const SizedBox(height: 40),
 
                 // Formulário
                 Form(
@@ -128,7 +137,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         decoration: const InputDecoration(
                           labelText: 'Email',
                           hintText: 'seu@email.com',
-                          prefixIcon: Icon(Icons.email),
+                          prefixIcon: const Icon(Icons.email_outlined),
                         ),
                         validator: (value) {
                           if (value == null || value.isEmpty) {
@@ -148,7 +157,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         obscureText: _obscurePassword,
                         decoration: InputDecoration(
                           labelText: 'Senha',
-                          prefixIcon: const Icon(Icons.lock),
+                          prefixIcon: const Icon(Icons.lock_outline_rounded),
                           suffixIcon: IconButton(
                             icon: Icon(
                               _obscurePassword
@@ -180,7 +189,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         alignment: Alignment.centerRight,
                         child: TextButton(
                           onPressed: _resetPassword,
-                          child: const Text('Esqueceu a senha?'),
+                          child: const Text('Esqueceu a senha? Sem drama.'),
                         ),
                       ),
                       const SizedBox(height: 24),
@@ -222,7 +231,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                 ),
                               )
                             : const Text(
-                                'Entrar',
+                                'Abrir minha estante',
                                 style: TextStyle(fontSize: 16),
                               ),
                       ),
@@ -232,12 +241,12 @@ class _LoginScreenState extends State<LoginScreen> {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          const Text('Não tem conta? '),
+                          const Text('Novo por aqui? '),
                           TextButton(
                             onPressed: () {
                               Navigator.pushNamed(context, '/signup');
                             },
-                            child: const Text('Cadastre-se'),
+                            child: const Text('Monte sua estante →'),
                           ),
                         ],
                       ),

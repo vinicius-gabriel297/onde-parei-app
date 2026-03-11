@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../../services/auth_service.dart';
 import '../../services/firestore_service.dart';
@@ -30,153 +31,174 @@ class _HomeScreenState extends State<HomeScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Row(
+          mainAxisSize: MainAxisSize.min,
           children: [
             Icon(
-              Icons.book, // Ícone de livro
+              Icons.menu_book_rounded,
               color: colorScheme.onPrimary,
+              size: 22,
             ),
             const SizedBox(width: 8),
-            Text(
-              'Onde Parei ?',
-              style: TextStyle(color: colorScheme.onPrimary),
-            ),
+            Text('Onde Parei?', style: TextStyle(color: colorScheme.onPrimary)),
           ],
         ),
         actions: [
           IconButton(
-            icon: Icon(Icons.settings, color: colorScheme.onPrimary),
+            icon: Icon(
+              Icons.person_outline_rounded,
+              color: colorScheme.onPrimary,
+            ),
             onPressed: () {
               Navigator.push(
                 context,
                 MaterialPageRoute(builder: (context) => const SettingsScreen()),
               );
             },
-            tooltip: 'Configurações',
+            tooltip: 'Meu Perfil',
           ),
         ],
       ),
-      body: Column(
-        children: [
-          // Estatísticas rápidas
-          FutureBuilder<Map<String, dynamic>>(
-            future: firestoreService.getUserStats(user!.uid),
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return const LinearProgressIndicator();
-              }
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          final isDesktop = constraints.maxWidth >= 1000;
+          final isWideDesktop = constraints.maxWidth >= 1400;
 
-              if (snapshot.hasError) {
-                return Container(
-                  padding: const EdgeInsets.all(16),
-                  child: Text(
-                    'Erro ao carregar estatísticas: ${snapshot.error}',
-                    style: TextStyle(color: colorScheme.error),
+          return Center(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                maxWidth: isDesktop ? 1400 : double.infinity,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // Estatísticas compactas
+                  FutureBuilder<Map<String, dynamic>>(
+                    future: firestoreService.getUserStats(user!.uid),
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return const SizedBox(
+                          height: 3,
+                          child: LinearProgressIndicator(),
+                        );
+                      }
+                      final stats = snapshot.data ?? {};
+                      return _StatsRow(stats: stats, isDesktop: isDesktop);
+                    },
                   ),
-                );
-              }
 
-              final stats = snapshot.data ?? {};
-
-              return Container(
-                padding: const EdgeInsets.all(16),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: _StatCard(
-                        title: 'Total',
-                        value: '${stats['totalItems'] ?? 0}',
-                        icon: Icons.library_books,
-                        color: const Color(0xFF4F6C73),
-                      ),
+                  // Cabeçalho da Estante
+                  Padding(
+                    padding: EdgeInsets.fromLTRB(
+                      isDesktop ? 24 : 16,
+                      isDesktop ? 20 : 14,
+                      isDesktop ? 24 : 16,
+                      4,
                     ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: _StatCard(
-                        title: 'Lendo',
-                        value: '${stats['readingCount'] ?? 0}',
-                        icon: Icons.bookmark,
-                        color: const Color(0xFFBF8F65),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: _StatCard(
-                        title: 'Lidos',
-                        value: '${stats['readCount'] ?? 0}',
-                        icon: Icons.check_circle,
-                        color: const Color(0xFF697345),
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            },
-          ),
-
-          // Lista de itens recentes em cards com capa em destaque
-          Expanded(
-            child: StreamBuilder<List<ItemModel>>(
-              stream: firestoreService.getUserItems(user.uid),
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-
-                if (snapshot.hasError) {
-                  return Center(
-                    child: Text(
-                      'Erro ao carregar itens: ${snapshot.error}',
-                      style: TextStyle(color: colorScheme.error),
-                    ),
-                  );
-                }
-
-                final items = snapshot.data ?? [];
-
-                if (items.isEmpty) {
-                  return Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
+                    child: Row(
                       children: [
-                        Icon(
-                          Icons.library_books,
-                          size: 80,
-                          color: colorScheme.secondary,
-                        ),
-                        const SizedBox(height: 16),
                         Text(
-                          'Nenhum item adicionado ainda',
-                          style: TextStyle(
-                            fontSize: 18,
-                            color: colorScheme.secondary,
+                          'Minha Estante',
+                          style: GoogleFonts.crimsonText(
+                            fontSize: isDesktop ? 26 : 22,
+                            fontWeight: FontWeight.w600,
+                            color: colorScheme.onSurface,
                           ),
                         ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Toque no botão + para adicionar seu primeiro mangá ou livro',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: colorScheme.secondary,
+                        const Spacer(),
+                        TextButton.icon(
+                          icon: const Icon(Icons.list_rounded, size: 18),
+                          label: const Text('Ver lista'),
+                          style: TextButton.styleFrom(
+                            foregroundColor: colorScheme.primary,
+                            textStyle: GoogleFonts.libreFranklin(fontSize: 13),
                           ),
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => const ItemListScreen(),
+                              ),
+                            );
+                          },
                         ),
                       ],
                     ),
-                  );
-                }
+                  ),
 
-                return ListView.builder(
-                  padding: const EdgeInsets.all(16),
-                  itemCount: items.length > 10 ? 10 : items.length,
-                  itemBuilder: (context, index) {
-                    final item = items[index];
-                    return _ItemCard(item: item);
-                  },
-                );
-              },
+                  // Grade de capas — estante visual
+                  Expanded(
+                    child: StreamBuilder<List<ItemModel>>(
+                      stream: firestoreService.getUserItems(user.uid),
+                      builder: (context, snapshot) {
+                        if (snapshot.connectionState ==
+                            ConnectionState.waiting) {
+                          return const Center(
+                            child: CircularProgressIndicator(),
+                          );
+                        }
+
+                        if (snapshot.hasError) {
+                          return Center(
+                            child: Text(
+                              'Erro ao carregar itens: ${snapshot.error}',
+                              style: TextStyle(color: colorScheme.error),
+                            ),
+                          );
+                        }
+
+                        final items = snapshot.data ?? [];
+
+                        if (items.isEmpty) {
+                          return _EmptyShelf(isDesktop: isDesktop);
+                        }
+
+                        int crossAxisCount;
+                        if (isWideDesktop) {
+                          crossAxisCount = 6;
+                        } else if (isDesktop) {
+                          crossAxisCount = 4;
+                        } else {
+                          crossAxisCount = 3;
+                        }
+
+                        return GridView.builder(
+                          padding: EdgeInsets.fromLTRB(
+                            isDesktop ? 24 : 12,
+                            8,
+                            isDesktop ? 24 : 12,
+                            24,
+                          ),
+                          itemCount: items.length,
+                          gridDelegate:
+                              SliverGridDelegateWithFixedCrossAxisCount(
+                                crossAxisCount: crossAxisCount,
+                                crossAxisSpacing: isDesktop ? 14 : 10,
+                                mainAxisSpacing: isDesktop ? 14 : 10,
+                                childAspectRatio: 0.62,
+                              ),
+                          itemBuilder: (context, index) {
+                            return _BookCoverCard(
+                              item: items[index],
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) =>
+                                        EditItemScreen(item: items[index]),
+                                  ),
+                                );
+                              },
+                            );
+                          },
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
-        ],
+          );
+        },
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () {
@@ -185,8 +207,8 @@ class _HomeScreenState extends State<HomeScreen> {
             MaterialPageRoute(builder: (context) => const SearchScreen()),
           );
         },
-        tooltip: 'Adicionar item',
-        child: const Icon(Icons.add),
+        tooltip: 'Explorar & Adicionar',
+        child: const Icon(Icons.add_rounded),
       ),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _selectedIndex,
@@ -194,10 +216,8 @@ class _HomeScreenState extends State<HomeScreen> {
           setState(() {
             _selectedIndex = index;
           });
-
           switch (index) {
             case 0:
-              // Já estamos na tela inicial
               break;
             case 1:
               Navigator.push(
@@ -208,23 +228,73 @@ class _HomeScreenState extends State<HomeScreen> {
           }
         },
         items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Início'),
-          BottomNavigationBarItem(icon: Icon(Icons.list), label: 'Meus Itens'),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.home_rounded),
+            label: 'Início',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.library_books_rounded),
+            label: 'Minha Estante',
+          ),
         ],
       ),
     );
   }
 }
 
-class _StatCard extends StatelessWidget {
-  final String title;
-  final String value;
+// ─── Stats Row ───────────────────────────────────────────────────────────────
+
+class _StatsRow extends StatelessWidget {
+  final Map<String, dynamic> stats;
+  final bool isDesktop;
+
+  const _StatsRow({required this.stats, this.isDesktop = false});
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: EdgeInsets.symmetric(
+        horizontal: isDesktop ? 24 : 16,
+        vertical: 10,
+      ),
+      decoration: BoxDecoration(
+        border: Border(
+          bottom: BorderSide(color: colorScheme.primary.withValues(alpha: 0.2)),
+        ),
+      ),
+      child: Row(
+        children: [
+          _StatChip(
+            label: '${stats['totalItems'] ?? 0} títulos',
+            icon: Icons.library_books_rounded,
+            color: const Color(0xFF6A9E96),
+          ),
+          const SizedBox(width: 10),
+          _StatChip(
+            label: '${stats['readingCount'] ?? 0} lendo',
+            icon: Icons.bookmark_rounded,
+            color: const Color(0xFFC8A45A),
+          ),
+          const SizedBox(width: 10),
+          _StatChip(
+            label: '${stats['readCount'] ?? 0} concluídos',
+            icon: Icons.check_circle_rounded,
+            color: const Color(0xFF587A52),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StatChip extends StatelessWidget {
+  final String label;
   final IconData icon;
   final Color color;
 
-  const _StatCard({
-    required this.title,
-    required this.value,
+  const _StatChip({
+    required this.label,
     required this.icon,
     required this.color,
   });
@@ -232,27 +302,24 @@ class _StatCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: color.withValues(alpha: 0.3)),
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: color.withValues(alpha: 0.35)),
       ),
-      child: Column(
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, color: color, size: 24),
-          const SizedBox(height: 4),
+          Icon(icon, size: 13, color: color),
+          const SizedBox(width: 5),
           Text(
-            value,
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
+            label,
+            style: GoogleFonts.libreFranklin(
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
               color: color,
             ),
-          ),
-          Text(
-            title,
-            style: TextStyle(fontSize: 12, color: color.withValues(alpha: 0.8)),
           ),
         ],
       ),
@@ -260,122 +327,226 @@ class _StatCard extends StatelessWidget {
   }
 }
 
-class _ItemCard extends StatelessWidget {
-  final ItemModel item;
+// ─── Empty Shelf ──────────────────────────────────────────────────────────────
 
-  const _ItemCard({required this.item});
+class _EmptyShelf extends StatelessWidget {
+  final bool isDesktop;
+
+  const _EmptyShelf({this.isDesktop = false});
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      elevation: 2,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(12),
-        onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => EditItemScreen(item: item)),
-          );
-        },
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: item.imageUrl != null
-                    ? AdaptiveNetworkImage(
-                        imageUrl: item.imageUrl!,
-                        width: 72,
-                        height: 108,
-                        fit: BoxFit.cover,
-                        fallback: _buildImageFallback(),
-                      )
-                    : _buildImageFallback(),
+    return Center(
+      child: Padding(
+        padding: EdgeInsets.all(isDesktop ? 48 : 32),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.menu_book_rounded,
+              size: isDesktop ? 96 : 72,
+              color: colorScheme.primary.withValues(alpha: 0.45),
+            ),
+            SizedBox(height: isDesktop ? 24 : 18),
+            Text(
+              'Sua estante está em branco...',
+              textAlign: TextAlign.center,
+              style: GoogleFonts.crimsonText(
+                fontSize: isDesktop ? 26 : 22,
+                fontWeight: FontWeight.w500,
+                color: colorScheme.onSurface,
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      item.name,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
+            ),
+            const SizedBox(height: 10),
+            Text(
+              'Que história vai ser a primeira?',
+              textAlign: TextAlign.center,
+              style: GoogleFonts.libreBaskerville(
+                fontSize: isDesktop ? 16 : 14,
+                color: colorScheme.onSurfaceVariant,
+                fontStyle: FontStyle.italic,
+              ),
+            ),
+            SizedBox(height: isDesktop ? 32 : 24),
+            Text(
+              'Toque no  +  para explorar títulos',
+              textAlign: TextAlign.center,
+              style: GoogleFonts.libreFranklin(
+                fontSize: 13,
+                color: colorScheme.primary,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Book Cover Card ──────────────────────────────────────────────────────────
+
+class _BookCoverCard extends StatelessWidget {
+  final ItemModel item;
+  final VoidCallback onTap;
+
+  const _BookCoverCard({required this.item, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final isReading = item.status == ReadingStatus.reading;
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(8),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            // Capa do livro
+            ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: item.imageUrl != null
+                  ? AdaptiveNetworkImage(
+                      imageUrl: item.imageUrl!,
+                      fit: BoxFit.cover,
+                      fallback: _buildFallbackCover(colorScheme),
+                    )
+                  : _buildFallbackCover(colorScheme),
+            ),
+
+            // Gradiente + título na base
+            Positioned(
+              bottom: 0,
+              left: 0,
+              right: 0,
+              child: ClipRRect(
+                borderRadius: const BorderRadius.vertical(
+                  bottom: Radius.circular(8),
+                ),
+                child: Container(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Colors.transparent,
+                        Colors.black.withValues(alpha: 0.75),
+                      ],
                     ),
-                    const SizedBox(height: 6),
-                    Text(
-                      item.displayType,
-                      style: TextStyle(
-                        color: colorScheme.secondary,
-                        fontWeight: FontWeight.w500,
-                      ),
+                  ),
+                  padding: const EdgeInsets.fromLTRB(6, 16, 6, 6),
+                  child: Text(
+                    item.name,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.libreFranklin(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w500,
+                      color: Colors.white,
+                      height: 1.3,
                     ),
-                    if (item.displayCurrentPosition.isNotEmpty) ...[
-                      const SizedBox(height: 4),
-                      Text(
-                        item.displayCurrentPosition,
-                        style: const TextStyle(fontSize: 13),
-                      ),
-                    ],
-                    const SizedBox(height: 10),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 5,
-                      ),
-                      decoration: BoxDecoration(
-                        color: _getStatusColor(
-                          item.status,
-                        ).withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: _getStatusColor(item.status)),
-                      ),
-                      child: Text(
-                        item.displayStatus,
-                        style: TextStyle(
-                          color: _getStatusColor(item.status),
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
               ),
-            ],
-          ),
+            ),
+
+            // Indicador "Lendo" no canto superior direito
+            if (isReading)
+              Positioned(
+                top: 4,
+                right: 4,
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFC8A45A),
+                    borderRadius: BorderRadius.circular(4),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.4),
+                        blurRadius: 3,
+                        offset: const Offset(0, 1),
+                      ),
+                    ],
+                  ),
+                  padding: const EdgeInsets.all(3),
+                  child: const Icon(
+                    Icons.bookmark_rounded,
+                    size: 12,
+                    color: Color(0xFF1A1410),
+                  ),
+                ),
+              ),
+
+            // Badge "Concluído"
+            if (item.status == ReadingStatus.read)
+              Positioned(
+                top: 4,
+                right: 4,
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF587A52),
+                    borderRadius: BorderRadius.circular(4),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.4),
+                        blurRadius: 3,
+                        offset: const Offset(0, 1),
+                      ),
+                    ],
+                  ),
+                  padding: const EdgeInsets.all(3),
+                  child: const Icon(
+                    Icons.check_rounded,
+                    size: 12,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+          ],
         ),
       ),
     );
   }
 
-  Widget _buildImageFallback() {
+  Widget _buildFallbackCover(ColorScheme colorScheme) {
     return Container(
-      width: 72,
-      height: 108,
-      color: const Color(0xFF727355),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(8),
+        color: const Color(0xFF2C2318),
+        border: Border.all(
+          color: const Color(0xFFC8A45A).withValues(alpha: 0.3),
+        ),
+      ),
       alignment: Alignment.center,
-      child: const Icon(Icons.menu_book, color: Color(0xFFF6F4EF), size: 30),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            item.type == ItemType.manga
+                ? Icons.menu_book_rounded
+                : Icons.book_rounded,
+            color: const Color(0xFFC8A45A).withValues(alpha: 0.6),
+            size: 28,
+          ),
+          const SizedBox(height: 6),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 6),
+            child: Text(
+              item.name,
+              textAlign: TextAlign.center,
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis,
+              style: GoogleFonts.libreFranklin(
+                fontSize: 9,
+                color: const Color(0xFFB89E78),
+                height: 1.3,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
-  }
-
-  Color _getStatusColor(ReadingStatus status) {
-    switch (status) {
-      case ReadingStatus.read:
-        return const Color(0xFF697345);
-      case ReadingStatus.reading:
-        return const Color(0xFFBF8F65);
-      case ReadingStatus.wantToRead:
-        return const Color(0xFF4F6C73);
-    }
   }
 }

@@ -59,7 +59,7 @@ class _SignupScreenState extends State<SignupScreen> {
         final userSettings = UserSettings(
           userId: user.uid,
           displayName: _displayNameController.text.trim(),
-          isDarkMode: false,
+          isDarkMode: true,
           language: 'pt_BR',
         );
 
@@ -69,7 +69,7 @@ class _SignupScreenState extends State<SignupScreen> {
       // Navegação será automática através do AuthWrapper
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Conta criada com sucesso!'),
+          content: Text('Bem-vindo à sua nova estante! 🎉'),
           backgroundColor: Theme.of(context).colorScheme.secondary,
         ),
       );
@@ -92,7 +92,7 @@ class _SignupScreenState extends State<SignupScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Criar Conta'),
+        title: const Text('Nova Estante'),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () => Navigator.pop(context),
@@ -107,24 +107,33 @@ class _SignupScreenState extends State<SignupScreen> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 // Logo/Título
-                const Icon(Icons.book, size: 80, color: Color(0xFF4F6C73)),
-                const SizedBox(height: 24),
+                Icon(
+                  Icons.menu_book_rounded,
+                  size: 72,
+                  color: colorScheme.primary,
+                ),
+                const SizedBox(height: 20),
                 Text(
-                  'Criar Nova Conta',
+                  'Uma Nova Estante',
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                    fontSize: 28,
-                    fontWeight: FontWeight.bold,
-                    color: colorScheme.onBackground,
+                    fontSize: 32,
+                    fontWeight: FontWeight.w600,
+                    color: colorScheme.onSurface,
                   ),
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 10),
                 Text(
-                  'Preencha os dados abaixo para começar',
+                  'Crie seu espaço.\nOs melhores livros estão esperando.',
                   textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 16, color: colorScheme.secondary),
+                  style: TextStyle(
+                    fontSize: 15,
+                    color: colorScheme.onSurfaceVariant,
+                    fontStyle: FontStyle.italic,
+                    height: 1.5,
+                  ),
                 ),
-                const SizedBox(height: 48),
+                const SizedBox(height: 40),
 
                 // Formulário
                 Form(
@@ -225,8 +234,8 @@ class _SignupScreenState extends State<SignupScreen> {
                         controller: _displayNameController,
                         decoration: const InputDecoration(
                           labelText: 'Nome de Exibição',
-                          hintText: 'Como você quer ser chamado?',
-                          prefixIcon: Icon(Icons.person),
+                          hintText: 'Como devo te chamar, leitor?',
+                          prefixIcon: Icon(Icons.person_outline_rounded),
                         ),
                         validator: (value) {
                           if (value == null || value.trim().isEmpty) {
@@ -274,7 +283,7 @@ class _SignupScreenState extends State<SignupScreen> {
                                 ),
                               )
                             : const Text(
-                                'Criar Conta',
+                                'Começar a ler →',
                                 style: TextStyle(fontSize: 16),
                               ),
                       ),
@@ -284,12 +293,12 @@ class _SignupScreenState extends State<SignupScreen> {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          const Text('Já tem conta? '),
+                          const Text('Já tem uma estante? '),
                           TextButton(
                             onPressed: () {
                               Navigator.pop(context);
                             },
-                            child: const Text('Fazer login'),
+                            child: const Text('Entrar'),
                           ),
                         ],
                       ),

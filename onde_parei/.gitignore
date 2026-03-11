@@ -52,3 +52,6 @@ app.*.map.json
 .env.local
 .env.production
 .env.development
+
+# API Keys (nunca commite com chaves reais)
+lib/config/api_keys.dart

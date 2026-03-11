@@ -63,6 +63,11 @@ class GoogleBook {
   final int? pageCount;
   final String? language;
   final String? isbn;
+  final double? averageRating;
+  final int? ratingsCount;
+  final int? wantToReadCount;
+  final int? alreadyReadCount;
+  final int? editionCount;
 
   GoogleBook({
     required this.id,
@@ -74,9 +79,44 @@ class GoogleBook {
     this.pageCount,
     this.language,
     this.isbn,
+    this.averageRating,
+    this.ratingsCount,
+    this.wantToReadCount,
+    this.alreadyReadCount,
+    this.editionCount,
   });
 
   factory GoogleBook.fromJson(Map<String, dynamic> json) {
+    // Open Library docs payload
+    if (json.containsKey('key') && json.containsKey('title')) {
+      final key = (json['key'] as String?) ?? '';
+      final coverId = _parseInt(json['cover_i']);
+      final authorNames = (json['author_name'] as List<dynamic>?)
+          ?.map((e) => e.toString())
+          .where((e) => e.trim().isNotEmpty)
+          .toList();
+
+      return GoogleBook(
+        id: key.replaceFirst('/works/', ''),
+        title: json['title']?.toString() ?? '',
+        imageUrl: coverId != null
+            ? 'https://covers.openlibrary.org/b/id/$coverId-M.jpg'
+            : null,
+        description: null,
+        authors: authorNames,
+        publishedDate: json['first_publish_year']?.toString(),
+        pageCount: _parseInt(json['number_of_pages_median']),
+        language: null,
+        isbn: _firstFromDynamicList(json['isbn']),
+        averageRating: _parseDouble(json['ratings_average']),
+        ratingsCount: _parseInt(json['ratings_count']),
+        wantToReadCount: _parseInt(json['want_to_read_count']),
+        alreadyReadCount: _parseInt(json['already_read_count']),
+        editionCount: _parseInt(json['edition_count']),
+      );
+    }
+
+    // Google Books payload (legacy compatibility)
     final volumeInfo = json['volumeInfo'];
     final imageLinks = volumeInfo?['imageLinks'] as Map<String, dynamic>?;
 
@@ -90,7 +130,36 @@ class GoogleBook {
       pageCount: volumeInfo?['pageCount'],
       language: volumeInfo?['language'],
       isbn: _extractIsbn(volumeInfo),
+      averageRating: _parseDouble(volumeInfo?['averageRating']),
+      ratingsCount: _parseInt(volumeInfo?['ratingsCount']),
+      wantToReadCount: null,
+      alreadyReadCount: null,
+      editionCount: null,
     );
+  }
+
+  static int? _parseInt(dynamic value) {
+    if (value == null) return null;
+    if (value is int) return value;
+    if (value is double) return value.toInt();
+    if (value is String) return int.tryParse(value);
+    return null;
+  }
+
+  static double? _parseDouble(dynamic value) {
+    if (value == null) return null;
+    if (value is double) return value;
+    if (value is int) return value.toDouble();
+    if (value is String) return double.tryParse(value);
+    return null;
+  }
+
+  static String? _firstFromDynamicList(dynamic value) {
+    if (value is List && value.isNotEmpty) {
+      final first = value.first;
+      if (first != null) return first.toString();
+    }
+    return null;
   }
 
   static String? _extractBestBookImageUrl(Map<String, dynamic>? imageLinks) {
@@ -270,6 +339,11 @@ class SearchResult {
         'pageCount': book.pageCount,
         'language': book.language,
         'isbn': book.isbn,
+        'averageRating': book.averageRating,
+        'ratingsCount': book.ratingsCount,
+        'wantToReadCount': book.wantToReadCount,
+        'alreadyReadCount': book.alreadyReadCount,
+        'editionCount': book.editionCount,
       },
     );
   }
