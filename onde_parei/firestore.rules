@@ -1,35 +1,40 @@
 rules_version = '2';
+
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Helper function to check if user is authenticated
+
     function isAuthenticated() {
       return request.auth != null;
     }
 
-    // Helper function to check if user owns the document
     function isOwner(userId) {
       return isAuthenticated() && request.auth.uid == userId;
     }
 
-    // Items collection - users can only access their own items
+    // Itens da estante — cada usuário só enxerga e altera os próprios.
     match /items/{itemId} {
-      // Allow read/write only for the owner of the item
-      allow read, write: if isOwner(resource.data.userId);
-
-      // Allow create if user is authenticated and owns the new item
-      allow create: if isAuthenticated() && isOwner(request.resource.data.userId);
+      allow read, update, delete: if isOwner(resource.data.userId);
+      allow create: if isAuthenticated()
+                    && isOwner(request.resource.data.userId)
+                    && request.resource.data.name is string
+                    && request.resource.data.name.size() > 0;
     }
 
-    // Users collection (if needed for user profiles)
+    // Perfis (reservado para uso futuro).
     match /users/{userId} {
-      // Users can read and write their own profile
       allow read, write: if isOwner(userId);
     }
 
-    // Catálogo compartilhado de livros — qualquer usuário autenticado pode ler/escrever
+    // Catálogo compartilhado de títulos já pesquisados. Serve de cache para
+    // deixar buscas repetidas instantâneas, então qualquer usuário
+    // autenticado lê e grava — mas só com o formato esperado.
     match /book_catalog/{bookId} {
       allow read: if isAuthenticated();
-      allow create, update: if isAuthenticated();
+      allow create, update: if isAuthenticated()
+                            && request.resource.data.title is string
+                            && request.resource.data.title.size() > 0
+                            && request.resource.data.titleLower is string
+                            && request.resource.data.addedBy == request.auth.uid;
       allow delete: if false;
     }
   }

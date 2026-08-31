@@ -1,20 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
+import '../../models/item_model.dart';
+import '../../services/api_service.dart';
 import '../../services/auth_service.dart';
 import '../../services/firestore_service.dart';
-import '../../services/settings_service.dart';
-import '../../models/user_settings.dart';
-
-class ThemeNotifier with ChangeNotifier {
-  bool _isDarkMode = true;
-
-  bool get isDarkMode => _isDarkMode;
-
-  void setDarkMode(bool value) {
-    _isDarkMode = value;
-    notifyListeners();
-  }
-}
+import '../../theme/app_theme.dart';
+import '../../theme/theme_controller.dart';
+import '../../widgets/ui_kit.dart';
+import 'account_data_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -23,409 +17,453 @@ class SettingsScreen extends StatefulWidget {
   State<SettingsScreen> createState() => _SettingsScreenState();
 }
 
-class _SettingsScreenState extends State<SettingsScreen> {
-  final _formKey = GlobalKey<FormState>();
-  final _displayNameController = TextEditingController();
+class _SettingsScreenState extends State<SettingsScreen>
+    with AutomaticKeepAliveClientMixin {
+  final _nameController = TextEditingController();
 
-  bool _isDarkMode = false;
-  bool _isLoading = false;
-  String? _errorMessage;
-  UserSettings? _currentSettings;
+  bool _savingName = false;
+  bool _migrating = false;
+  bool _nameDirty = false;
+
+  @override
+  bool get wantKeepAlive => true;
 
   @override
   void initState() {
     super.initState();
-    _loadSettings();
+    final user = context.read<AuthService>().currentUser;
+    _nameController.text = user?.displayName ?? '';
   }
 
   @override
   void dispose() {
-    _displayNameController.dispose();
+    _nameController.dispose();
     super.dispose();
   }
 
-  Future<void> _loadSettings() async {
+  Future<void> _saveName() async {
+    setState(() => _savingName = true);
     try {
-      final authService = Provider.of<AuthService>(context, listen: false);
-      final settingsService = Provider.of<SettingsService>(
-        context,
-        listen: false,
-      );
-
-      final user = authService.currentUser;
-      if (user != null) {
-        final settings = await settingsService.loadSettings(user.uid);
-        setState(() {
-          _currentSettings = settings;
-          _displayNameController.text = settings.displayName;
-          _isDarkMode = settings.isDarkMode;
-        });
-      }
+      await context.read<AuthService>().updateDisplayName(_nameController.text);
+      if (!mounted) return;
+      setState(() => _nameDirty = false);
+      AppSnack.show(context, 'Nome atualizado.');
     } catch (e) {
-      setState(() {
-        _errorMessage = 'Erro ao carregar configurações: $e';
-      });
+      if (mounted) AppSnack.error(context, '$e');
+    } finally {
+      if (mounted) setState(() => _savingName = false);
     }
   }
 
-  Future<void> _saveSettings() async {
-    if (!_formKey.currentState!.validate()) return;
+  Future<void> _fixCovers() async {
+    final user = context.read<AuthService>().currentUser;
+    if (user == null) return;
 
-    setState(() {
-      _isLoading = true;
-      _errorMessage = null;
-    });
+    setState(() => _migrating = true);
+    try {
+      final count = await context
+          .read<FirestoreService>()
+          .migrateUserImageUrlsToHttps(user.uid);
+      if (!mounted) return;
+      AppSnack.show(
+        context,
+        count == 0
+            ? 'Nenhuma capa precisava de correção.'
+            : '$count ${count == 1 ? 'capa corrigida' : 'capas corrigidas'}.',
+      );
+    } catch (e) {
+      if (mounted) AppSnack.error(context, '$e');
+    } finally {
+      if (mounted) setState(() => _migrating = false);
+    }
+  }
+
+  Future<void> _signOut() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Sair da conta'),
+        content: const Text('Você precisará entrar novamente para acessar sua estante.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Cancelar'),
+          ),
+          TextButton(
+            style: TextButton.styleFrom(
+              foregroundColor: Theme.of(dialogContext).colorScheme.error,
+            ),
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Sair'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
 
     try {
-      final authService = Provider.of<AuthService>(context, listen: false);
-      final settingsService = Provider.of<SettingsService>(
-        context,
-        listen: false,
-      );
-
-      final user = authService.currentUser;
-      if (user != null) {
-        final updatedSettings = _currentSettings!.copyWith(
-          displayName: _displayNameController.text.trim(),
-          isDarkMode: _isDarkMode,
-        );
-
-        await settingsService.saveSettings(updatedSettings);
-
-        setState(() {
-          _currentSettings = updatedSettings;
-        });
-
-        // Aplicar tema se mudou
-        if (updatedSettings.isDarkMode != _currentSettings!.isDarkMode) {
-          Provider.of<ThemeNotifier>(
-            context,
-            listen: false,
-          ).setDarkMode(updatedSettings.isDarkMode);
-        }
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Configurações salvas com sucesso!'),
-            backgroundColor: Theme.of(context).colorScheme.secondary,
-          ),
-        );
-      }
+      await context.read<AuthService>().signOut();
     } catch (e) {
-      setState(() {
-        _errorMessage = e.toString();
-      });
-    } finally {
-      setState(() {
-        _isLoading = false;
-      });
+      if (mounted) AppSnack.error(context, '$e');
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
+    super.build(context);
+
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final auth = context.read<AuthService>();
+    final firestore = context.read<FirestoreService>();
+    final themeController = context.watch<ThemeController>();
+    final user = auth.currentUser;
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Meu Canto de Leitura'),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => Navigator.pop(context),
-        ),
-        actions: [
-          TextButton(
-            onPressed: _isLoading ? null : _saveSettings,
-            child: _isLoading
-                ? const SizedBox(
-                    height: 20,
-                    width: 20,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+      body: SafeArea(
+        bottom: false,
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 110),
+          children: [
+            Text('Meu perfil', style: theme.textTheme.headlineMedium),
+            const SizedBox(height: 2),
+            Text(
+              user?.email ?? 'Não autenticado',
+              style: theme.textTheme.bodySmall,
+            ),
+
+            const SizedBox(height: 22),
+
+            // Resumo da estante
+            StreamBuilder<List<ItemModel>>(
+              stream: user == null
+                  ? const Stream<List<ItemModel>>.empty()
+                  : firestore.getUserItems(user.uid),
+              builder: (context, snapshot) {
+                final items = snapshot.data ?? const <ItemModel>[];
+                final stats = FirestoreService.statsFrom(items);
+                return _SummaryCard(stats: stats);
+              },
+            ),
+
+            const SizedBox(height: 26),
+            Text('Nome de exibição', style: theme.textTheme.titleSmall),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _nameController,
+                    textCapitalization: TextCapitalization.words,
+                    onChanged: (_) {
+                      if (!_nameDirty) setState(() => _nameDirty = true);
+                    },
+                    decoration: const InputDecoration(
+                      hintText: 'Como quer ser chamado?',
+                      isDense: true,
                     ),
-                  )
-                : const Text('Salvar'),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                FilledButton(
+                  onPressed: (_savingName || !_nameDirty) ? null : _saveName,
+                  child: _savingName
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Text('Salvar'),
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 26),
+            Text('Aparência', style: theme.textTheme.titleSmall),
+            const SizedBox(height: 10),
+            _ThemeSelector(
+              mode: themeController.mode,
+              onChanged: themeController.setMode,
+            ),
+
+            const SizedBox(height: 26),
+            Text('Manutenção', style: theme.textTheme.titleSmall),
+            const SizedBox(height: 10),
+            _ActionTile(
+              icon: Icons.image_outlined,
+              title: 'Corrigir capas antigas',
+              subtitle: 'Converte endereços http:// para https://',
+              trailing: _migrating
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.chevron_right_rounded),
+              onTap: _migrating ? null : _fixCovers,
+            ),
+            const SizedBox(height: 10),
+            _ActionTile(
+              icon: Icons.refresh_rounded,
+              title: 'Limpar cache de busca',
+              subtitle: 'Força uma nova consulta nas APIs externas',
+              onTap: () {
+                ApiService.reset();
+                AppSnack.show(context, 'Cache de busca limpo.');
+              },
+            ),
+
+            const SizedBox(height: 26),
+            Text('Conta e dados', style: theme.textTheme.titleSmall),
+            const SizedBox(height: 10),
+            _ActionTile(
+              icon: Icons.shield_outlined,
+              title: 'Conta e dados',
+              subtitle: 'Exportar sua estante ou excluir a conta',
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => const AccountDataScreen(),
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 26),
+            _ActionTile(
+              icon: Icons.logout_rounded,
+              iconColor: scheme.error,
+              title: 'Sair da conta',
+              subtitle: user?.email ?? '',
+              onTap: _signOut,
+            ),
+
+            const SizedBox(height: 30),
+            Center(
+              child: Column(
+                children: [
+                  Icon(
+                    Icons.auto_stories_rounded,
+                    size: 26,
+                    color: scheme.primary.withValues(alpha: 0.5),
+                  ),
+                  const SizedBox(height: 8),
+                  Text('Onde Parei? · 1.1.1', style: theme.textTheme.labelSmall),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Resumo ───────────────────────────────────────────────────────────────────
+
+class _SummaryCard extends StatelessWidget {
+  final Map<String, dynamic> stats;
+
+  const _SummaryCard({required this.stats});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final average = (stats['averageRating'] as double?) ?? 0;
+
+    Widget cell(String value, String label, Color color) => Expanded(
+      child: Column(
+        children: [
+          Text(
+            value,
+            style: theme.textTheme.headlineSmall?.copyWith(
+              color: color,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            label,
+            textAlign: TextAlign.center,
+            style: theme.textTheme.labelSmall,
           ),
         ],
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // Seção de perfil
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          CircleAvatar(
-                            backgroundColor: const Color(0xFF4F6C73),
-                            radius: 30,
-                            child: const Icon(
-                              Icons.person,
-                              size: 40,
-                              color: Color(0xFFF6F4EF),
-                            ),
-                          ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Perfil',
-                                  style: Theme.of(context).textTheme.titleLarge,
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  'Configure seu perfil e preferências',
-                                  style: Theme.of(context).textTheme.bodyMedium
-                                      ?.copyWith(color: colorScheme.secondary),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ),
+    );
 
-              const SizedBox(height: 24),
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 12),
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(AppRadius.md),
+        border: Border.all(color: scheme.outlineVariant),
+      ),
+      child: Row(
+        children: [
+          cell('${stats['totalItems'] ?? 0}', 'títulos', scheme.primary),
+          cell(
+            '${stats['totalBooks'] ?? 0}',
+            'livros',
+            AppColors.typeBook,
+          ),
+          cell(
+            '${stats['totalMangas'] ?? 0}',
+            'quadrinhos',
+            AppColors.typeManga,
+          ),
+          cell(
+            average > 0 ? average.toStringAsFixed(1) : '—',
+            'nota média',
+            AppColors.gold,
+          ),
+        ],
+      ),
+    );
+  }
+}
 
-              // Nome de exibição
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Nome de Exibição',
-                        style: Theme.of(context).textTheme.titleMedium,
-                      ),
-                      const SizedBox(height: 8),
-                      TextFormField(
-                        controller: _displayNameController,
-                        decoration: const InputDecoration(
-                          hintText: 'Como você quer ser chamado?',
-                          border: OutlineInputBorder(),
-                        ),
-                        validator: (value) {
-                          if (value == null || value.trim().isEmpty) {
-                            return 'Nome de exibição é obrigatório';
-                          }
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Este nome aparecerá na tela inicial ao invés do email',
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: colorScheme.secondary,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
+// ─── Seletor de tema ──────────────────────────────────────────────────────────
 
-              const SizedBox(height: 16),
+class _ThemeSelector extends StatelessWidget {
+  final ThemeMode mode;
+  final ValueChanged<ThemeMode> onChanged;
 
-              // Sobre o app
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Sobre o Onde Parei',
-                        style: Theme.of(context).textTheme.titleMedium,
-                      ),
-                      const SizedBox(height: 16),
-                      ListTile(
-                        leading: const Icon(Icons.info),
-                        title: const Text('Versão'),
-                        subtitle: const Text('1.0.0'),
-                      ),
-                      ListTile(
-                        leading: const Icon(Icons.code),
-                        title: const Text('Desenvolvido com'),
-                        subtitle: const Text(
-                          'Flutter & Firebase — feito por um leitor, para outros leitores.',
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      SizedBox(
-                        width: double.infinity,
-                        child: OutlinedButton.icon(
-                          onPressed: () async {
-                            final authService = Provider.of<AuthService>(
-                              context,
-                              listen: false,
-                            );
-                            final firestoreService =
-                                Provider.of<FirestoreService>(
-                                  context,
-                                  listen: false,
-                                );
+  const _ThemeSelector({required this.mode, required this.onChanged});
 
-                            final user = authService.currentUser;
-                            if (user == null) return;
+  @override
+  Widget build(BuildContext context) {
+    const options = <(ThemeMode, String, IconData)>[
+      (ThemeMode.light, 'Claro', Icons.light_mode_rounded),
+      (ThemeMode.dark, 'Escuro', Icons.dark_mode_rounded),
+      (ThemeMode.system, 'Sistema', Icons.brightness_auto_rounded),
+    ];
 
-                            final updatedCount = await firestoreService
-                                .migrateUserImageUrlsToHttps(user.uid);
+    final scheme = Theme.of(context).colorScheme;
 
-                            if (!context.mounted) return;
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(
-                                  updatedCount > 0
-                                      ? '$updatedCount capa(s) corrigida(s) para HTTPS.'
-                                      : 'Nenhuma capa precisava de correção.',
-                                ),
-                              ),
-                            );
-                          },
-                          icon: const Icon(Icons.image_search),
-                          label: const Text('Corrigir capas para Web (HTTPS)'),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-
-              const SizedBox(height: 16),
-
-              // Seção de conta
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Conta',
-                        style: Theme.of(context).textTheme.titleMedium,
-                      ),
-                      const SizedBox(height: 16),
-                      SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton.icon(
-                          onPressed: () async {
-                            final shouldLogout = await showDialog<bool>(
-                              context: context,
-                              builder: (context) => AlertDialog(
-                                title: const Text('Fechar o livro?'),
-                                content: const Text(
-                                  'Você sairá do app. Não se preocupe — '
-                                  'sua estante estará aqui quando voltar.',
-                                ),
-                                actions: [
-                                  TextButton(
-                                    onPressed: () =>
-                                        Navigator.of(context).pop(false),
-                                    child: const Text('Cancelar'),
-                                  ),
-                                  TextButton(
-                                    onPressed: () =>
-                                        Navigator.of(context).pop(true),
-                                    style: TextButton.styleFrom(
-                                      foregroundColor: Theme.of(
-                                        context,
-                                      ).colorScheme.error,
-                                    ),
-                                    child: const Text('Sair'),
-                                  ),
-                                ],
-                              ),
-                            );
-
-                            if (shouldLogout == true) {
-                              await Provider.of<AuthService>(
-                                context,
-                                listen: false,
-                              ).signOut();
-
-                              // Navegar de volta ao início (AuthWrapper cuidará do login)
-                              if (context.mounted) {
-                                Navigator.of(context).pushNamedAndRemoveUntil(
-                                  '/',
-                                  (Route<dynamic> route) => false,
-                                );
-                              }
-                            }
-                          },
-                          icon: const Icon(Icons.logout),
-                          label: const Text('Sair da Conta'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: colorScheme.error.withValues(
-                              alpha: 0.12,
-                            ),
-                            foregroundColor: colorScheme.error,
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-
-              const SizedBox(height: 24),
-
-              // Mensagem de erro
-              if (_errorMessage != null)
-                Container(
-                  padding: const EdgeInsets.all(12),
+    return Row(
+      children: [
+        for (final (value, label, icon) in options) ...[
+          Expanded(
+            child: Material(
+              color: mode == value
+                  ? scheme.primary.withValues(alpha: 0.14)
+                  : scheme.surfaceContainer,
+              borderRadius: BorderRadius.circular(AppRadius.md),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(AppRadius.md),
+                onTap: () => onChanged(value),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(vertical: 14),
                   decoration: BoxDecoration(
-                    color: colorScheme.error.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(AppRadius.md),
                     border: Border.all(
-                      color: colorScheme.error.withValues(alpha: 0.4),
+                      color: mode == value
+                          ? scheme.primary
+                          : scheme.outlineVariant,
+                      width: mode == value ? 1.6 : 1,
                     ),
                   ),
-                  child: Text(
-                    _errorMessage!,
-                    style: TextStyle(color: colorScheme.error),
-                    textAlign: TextAlign.center,
+                  child: Column(
+                    children: [
+                      Icon(
+                        icon,
+                        size: 20,
+                        color: mode == value
+                            ? scheme.primary
+                            : scheme.onSurfaceVariant,
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        label,
+                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                          color: mode == value
+                              ? scheme.primary
+                              : scheme.onSurfaceVariant,
+                          fontWeight: mode == value
+                              ? FontWeight.w700
+                              : FontWeight.w500,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-
-              const SizedBox(height: 16),
-
-              // Botão salvar
-              ElevatedButton(
-                onPressed: _isLoading ? null : _saveSettings,
-                style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                ),
-                child: _isLoading
-                    ? SizedBox(
-                        height: 20,
-                        width: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          valueColor: AlwaysStoppedAnimation<Color>(
-                            colorScheme.onPrimary,
-                          ),
-                        ),
-                      )
-                    : const Text(
-                        'Salvar preferências',
-                        style: TextStyle(fontSize: 16),
-                      ),
               ),
+            ),
+          ),
+          if (value != options.last.$1) const SizedBox(width: 8),
+        ],
+      ],
+    );
+  }
+}
+
+// ─── Item de ação ─────────────────────────────────────────────────────────────
+
+class _ActionTile extends StatelessWidget {
+  final IconData icon;
+  final Color? iconColor;
+  final String title;
+  final String subtitle;
+  final Widget? trailing;
+  final VoidCallback? onTap;
+
+  const _ActionTile({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    this.iconColor,
+    this.trailing,
+    this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final color = iconColor ?? scheme.primary;
+
+    return Material(
+      color: scheme.surfaceContainerLow,
+      borderRadius: BorderRadius.circular(AppRadius.md),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(AppRadius.md),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(AppRadius.md),
+            border: Border.all(color: scheme.outlineVariant),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.13),
+                  borderRadius: BorderRadius.circular(AppRadius.sm),
+                ),
+                child: Icon(icon, size: 18, color: color),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(title, style: theme.textTheme.titleMedium),
+                    if (subtitle.isNotEmpty) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        subtitle,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.bodySmall,
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              if (trailing != null) trailing!,
             ],
           ),
         ),

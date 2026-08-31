@@ -1,6 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import '../../services/auth_service.dart';
+import '../../theme/app_theme.dart';
+import '../../widgets/ui_kit.dart';
+import 'auth_scaffold.dart';
+import 'signup_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -26,7 +31,7 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _login() async {
-    if (!_formKey.currentState!.validate()) return;
+    if (!(_formKey.currentState?.validate() ?? false)) return;
 
     setState(() {
       _isLoading = true;
@@ -34,229 +39,169 @@ class _LoginScreenState extends State<LoginScreen> {
     });
 
     try {
-      final authService = Provider.of<AuthService>(context, listen: false);
-
-      await authService.signInWithEmailAndPassword(
+      await context.read<AuthService>().signInWithEmailAndPassword(
         email: _emailController.text.trim(),
         password: _passwordController.text,
       );
-
-      // Navegação será automática através do AuthWrapper
     } catch (e) {
-      setState(() {
-        _errorMessage = e.toString();
-      });
+      if (mounted) setState(() => _errorMessage = '$e');
     } finally {
-      setState(() {
-        _isLoading = false;
-      });
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
   Future<void> _resetPassword() async {
     final email = _emailController.text.trim();
-
     if (email.isEmpty) {
-      setState(() {
-        _errorMessage = 'Digite seu email para recuperar a senha.';
-      });
+      setState(() => _errorMessage = 'Informe seu e-mail para recuperar a senha.');
       return;
     }
 
     try {
-      final authService = Provider.of<AuthService>(context, listen: false);
-
-      await authService.resetPassword(email);
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Email de recuperação enviado! Verifique sua caixa de entrada.',
-          ),
-          backgroundColor: Theme.of(context).colorScheme.secondary,
-        ),
-      );
+      await context.read<AuthService>().resetPassword(email);
+      if (mounted) {
+        AppSnack.show(context, 'Enviamos um e-mail de recuperação para $email.');
+      }
     } catch (e) {
-      setState(() {
-        _errorMessage = e.toString();
-      });
+      if (mounted) setState(() => _errorMessage = '$e');
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
+    final theme = Theme.of(context);
 
-    return Scaffold(
-      body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24.0),
-            child: Column(
+    return AuthScaffold(
+      title: 'Bem-vindo de volta',
+      subtitle: 'Sua estante está esperando por você.',
+      child: Form(
+        key: _formKey,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            TextFormField(
+              controller: _emailController,
+              keyboardType: TextInputType.emailAddress,
+              autofillHints: const [AutofillHints.email],
+              decoration: const InputDecoration(
+                labelText: 'E-mail',
+                prefixIcon: Icon(Icons.mail_outline_rounded, size: 19),
+              ),
+              validator: (value) {
+                final text = (value ?? '').trim();
+                if (text.isEmpty) return 'Informe seu e-mail';
+                if (!text.contains('@')) return 'E-mail inválido';
+                return null;
+              },
+            ),
+            const SizedBox(height: 14),
+            TextFormField(
+              controller: _passwordController,
+              obscureText: _obscurePassword,
+              autofillHints: const [AutofillHints.password],
+              onFieldSubmitted: (_) => _login(),
+              decoration: InputDecoration(
+                labelText: 'Senha',
+                prefixIcon: const Icon(Icons.lock_outline_rounded, size: 19),
+                suffixIcon: IconButton(
+                  icon: Icon(
+                    _obscurePassword
+                        ? Icons.visibility_outlined
+                        : Icons.visibility_off_outlined,
+                    size: 19,
+                  ),
+                  onPressed: () =>
+                      setState(() => _obscurePassword = !_obscurePassword),
+                ),
+              ),
+              validator: (value) => (value ?? '').isEmpty
+                  ? 'Informe sua senha'
+                  : null,
+            ),
+
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton(
+                onPressed: _isLoading ? null : _resetPassword,
+                child: const Text('Esqueci minha senha'),
+              ),
+            ),
+
+            if (_errorMessage != null) ...[
+              const SizedBox(height: 4),
+              AuthErrorBox(message: _errorMessage!),
+              const SizedBox(height: 8),
+            ],
+
+            const SizedBox(height: 6),
+            SizedBox(
+              height: 52,
+              child: FilledButton(
+                onPressed: _isLoading ? null : _login,
+                child: _isLoading
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Text('Entrar'),
+              ),
+            ),
+
+            const SizedBox(height: 18),
+            Row(
               mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // Logo/Título
-                Icon(
-                  Icons.menu_book_rounded,
-                  size: 72,
-                  color: colorScheme.primary,
-                ),
-                const SizedBox(height: 20),
-                Text(
-                  'Onde Parei?',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 34,
-                    fontWeight: FontWeight.w600,
-                    color: colorScheme.onSurface,
-                  ),
-                ),
-                const SizedBox(height: 10),
-                Text(
-                  'Cada livro é uma jornada.\nVamos guardar a sua.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 16,
-                    color: colorScheme.onSurfaceVariant,
-                    fontStyle: FontStyle.italic,
-                    height: 1.5,
-                  ),
-                ),
-                const SizedBox(height: 40),
-
-                // Formulário
-                Form(
-                  key: _formKey,
-                  child: Column(
-                    children: [
-                      // Email
-                      TextFormField(
-                        controller: _emailController,
-                        keyboardType: TextInputType.emailAddress,
-                        decoration: const InputDecoration(
-                          labelText: 'Email',
-                          hintText: 'seu@email.com',
-                          prefixIcon: const Icon(Icons.email_outlined),
-                        ),
-                        validator: (value) {
-                          if (value == null || value.isEmpty) {
-                            return 'Campo obrigatório';
-                          }
-                          if (!value.contains('@')) {
-                            return 'Email inválido';
-                          }
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 16),
-
-                      // Senha
-                      TextFormField(
-                        controller: _passwordController,
-                        obscureText: _obscurePassword,
-                        decoration: InputDecoration(
-                          labelText: 'Senha',
-                          prefixIcon: const Icon(Icons.lock_outline_rounded),
-                          suffixIcon: IconButton(
-                            icon: Icon(
-                              _obscurePassword
-                                  ? Icons.visibility
-                                  : Icons.visibility_off,
-                              color: colorScheme.primary,
-                            ),
-                            onPressed: () {
-                              setState(() {
-                                _obscurePassword = !_obscurePassword;
-                              });
-                            },
+                Text('Ainda não tem conta?', style: theme.textTheme.bodySmall),
+                TextButton(
+                  onPressed: _isLoading
+                      ? null
+                      : () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const SignupScreen(),
                           ),
                         ),
-                        validator: (value) {
-                          if (value == null || value.isEmpty) {
-                            return 'Campo obrigatório';
-                          }
-                          if (value.length < 6) {
-                            return 'Senha deve ter pelo menos 6 caracteres';
-                          }
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 8),
-
-                      // Esqueceu a senha
-                      Align(
-                        alignment: Alignment.centerRight,
-                        child: TextButton(
-                          onPressed: _resetPassword,
-                          child: const Text('Esqueceu a senha? Sem drama.'),
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-
-                      // Mensagem de erro
-                      if (_errorMessage != null)
-                        Container(
-                          padding: const EdgeInsets.all(12),
-                          margin: const EdgeInsets.only(bottom: 16),
-                          decoration: BoxDecoration(
-                            color: colorScheme.error.withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(
-                              color: colorScheme.error.withValues(alpha: 0.4),
-                            ),
-                          ),
-                          child: Text(
-                            _errorMessage!,
-                            style: TextStyle(color: colorScheme.error),
-                            textAlign: TextAlign.center,
-                          ),
-                        ),
-
-                      // Botão de login
-                      ElevatedButton(
-                        onPressed: _isLoading ? null : _login,
-                        style: ElevatedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                        ),
-                        child: _isLoading
-                            ? SizedBox(
-                                height: 20,
-                                width: 20,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  valueColor: AlwaysStoppedAnimation<Color>(
-                                    colorScheme.onPrimary,
-                                  ),
-                                ),
-                              )
-                            : const Text(
-                                'Abrir minha estante',
-                                style: TextStyle(fontSize: 16),
-                              ),
-                      ),
-                      const SizedBox(height: 16),
-
-                      // Link para cadastro
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const Text('Novo por aqui? '),
-                          TextButton(
-                            onPressed: () {
-                              Navigator.pushNamed(context, '/signup');
-                            },
-                            child: const Text('Monte sua estante →'),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
+                  child: const Text('Criar conta'),
                 ),
               ],
             ),
-          ),
+          ],
         ),
+      ),
+    );
+  }
+}
+
+class AuthErrorBox extends StatelessWidget {
+  final String message;
+
+  const AuthErrorBox({super.key, required this.message});
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: scheme.error.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(AppRadius.sm),
+        border: Border.all(color: scheme.error.withValues(alpha: 0.4)),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.error_outline_rounded, size: 18, color: scheme.error),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              message.replaceFirst('Exception: ', ''),
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: scheme.error,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

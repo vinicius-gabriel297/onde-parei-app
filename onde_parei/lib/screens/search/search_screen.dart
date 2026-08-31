@@ -1,11 +1,29 @@
-import 'package:flutter/material.dart';
 import 'dart:async';
+
+import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../services/api_service.dart';
-import '../../services/firestore_service.dart';
+
 import '../../models/api_models.dart';
-import '../items/add_item_screen.dart';
+import '../../models/item_model.dart';
+import '../../services/api_service.dart';
+import '../../services/auth_service.dart';
+import '../../services/firestore_service.dart';
+import '../../services/search_history_service.dart';
+import '../../theme/app_theme.dart';
 import '../../widgets/adaptive_network_image.dart';
+import '../../widgets/ui_kit.dart';
+import '../items/add_item_screen.dart';
+
+const _suggestions = <String>[
+  'Solo Leveling',
+  'One Piece',
+  'Tower of God',
+  'Duna',
+  'O Nome do Vento',
+  'Berserk',
+  'Chainsaw Man',
+  'A Revolução dos Bichos',
+];
 
 class SearchScreen extends StatefulWidget {
   const SearchScreen({super.key});
@@ -14,363 +32,359 @@ class SearchScreen extends StatefulWidget {
   State<SearchScreen> createState() => _SearchScreenState();
 }
 
-class _SearchScreenState extends State<SearchScreen> {
-  final TextEditingController _searchController = TextEditingController();
-  Timer? _searchDebounce;
-  int _searchRequestId = 0;
+class _SearchScreenState extends State<SearchScreen>
+    with AutomaticKeepAliveClientMixin {
+  final _searchController = TextEditingController();
+  final _focusNode = FocusNode();
 
-  List<SearchResult> _searchResults = [];
-  List<SearchResult> _filteredResults = [];
-  bool _isLoading = false;
-  String? _errorMessage;
-  String _selectedTypeFilter = 'todos'; // 'todos', 'manga', 'book'
+  Timer? _debounce;
+  StreamSubscription<SearchSnapshot>? _subscription;
+
+  SearchSnapshot? _snapshot;
+  bool _isSearching = false;
+  String _activeQuery = '';
+  SearchScope _scope = SearchScope.all;
+  List<String> _recent = const [];
+
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadRecent();
+  }
 
   @override
   void dispose() {
-    _searchDebounce?.cancel();
+    _debounce?.cancel();
+    _subscription?.cancel();
     _searchController.dispose();
+    _focusNode.dispose();
     super.dispose();
   }
 
-  void _filterResults() {
-    if (!mounted) return;
-    setState(_applyFilterInMemory);
+  Future<void> _loadRecent() async {
+    final history = context.read<SearchHistoryService>();
+    final recent = await history.load();
+    if (mounted) setState(() => _recent = recent);
   }
 
-  void _applyFilterInMemory() {
-    if (_selectedTypeFilter == 'todos') {
-      _filteredResults = _searchResults;
-    } else {
-      _filteredResults = _searchResults
-          .where((result) => result.type == _selectedTypeFilter)
-          .toList();
-    }
-  }
+  void _onQueryChanged(String value) {
+    setState(() {});
+    _debounce?.cancel();
 
-  void _onSearchChanged(String rawValue) {
-    final query = rawValue.trim();
-
-    // Atualiza estado do ícone de limpar durante digitação
-    if (mounted) {
-      setState(() {});
-    }
-
-    _searchDebounce?.cancel();
-
-    if (query.isEmpty) {
+    final query = value.trim();
+    if (query.length < 2) {
+      _subscription?.cancel();
       setState(() {
-        _searchResults = [];
-        _filteredResults = [];
-        _errorMessage = null;
-        _isLoading = false;
+        _snapshot = null;
+        _isSearching = false;
+        _activeQuery = '';
       });
       return;
     }
 
-    _searchDebounce = Timer(const Duration(milliseconds: 400), () {
-      _search(queryOverride: query);
-    });
+    _debounce = Timer(
+      const Duration(milliseconds: 280),
+      () => _startSearch(query),
+    );
   }
 
-  Future<void> _search({String? queryOverride}) async {
-    final query = (queryOverride ?? _searchController.text).trim();
-    if (query.isEmpty) {
-      setState(() {
-        _searchResults = [];
-        _filteredResults = [];
-        _errorMessage = null;
-      });
-      return;
-    }
+  void _startSearch(String query, {bool saveHistory = true}) {
+    final trimmed = query.trim();
+    if (trimmed.length < 2) return;
 
-    final currentRequestId = ++_searchRequestId;
+    _debounce?.cancel();
+    _subscription?.cancel();
 
     setState(() {
-      _isLoading = true;
-      _errorMessage = null;
+      _activeQuery = trimmed;
+      _isSearching = true;
+      _snapshot = null;
     });
 
-    try {
-      final firestoreService = Provider.of<FirestoreService>(
-        context,
-        listen: false,
-      );
+    final firestore = context.read<FirestoreService>();
 
-      final onlyBooks = _selectedTypeFilter == 'book';
-
-      // Disparar buscas de mangá/manhwa em paralelo enquanto roda o catálogo
-      // (puladas se o filtro for apenas livros — evita latência desnecessária)
-      Future<List<SearchResult>>? mangaFuture;
-      Future<List<SearchResult>>? manhwaFuture;
-
-      if (!onlyBooks) {
-        mangaFuture = ApiService.searchMangas(query, limit: 4)
-            .then((list) => list.map(SearchResult.fromManga).toList())
-            .catchError((_) => <SearchResult>[]);
-
-        manhwaFuture = ApiService.searchManhwaManhua(query, limit: 6)
-            .then((list) => list.map(SearchResult.fromMangaDex).toList())
-            .catchError((_) => <SearchResult>[]);
-      }
-
-      // 1. Buscar no catálogo local (Firestore) — normalmente < 500ms
-      final catalogBooks = await firestoreService.searchBookCatalog(
-        query,
-        limit: 10,
-      );
-
-      if (!mounted || currentRequestId != _searchRequestId) return;
-
-      // 2. Só chama a API de livros se o catálogo devolveu poucos resultados
-      List<SearchResult> apiBooks = [];
-      if (catalogBooks.length < 5) {
-        final needed = 10 - catalogBooks.length;
-        final catalogIds = catalogBooks.map((r) => r.id).toSet();
-
-        apiBooks = await ApiService.searchBooks(query, maxResults: needed + 5)
-            .then((list) => list.map(SearchResult.fromBook).toList())
-            .catchError((_) => <SearchResult>[]);
-
-        // Deduplica: remove livros que já estão no catálogo
-        apiBooks = apiBooks.where((r) => !catalogIds.contains(r.id)).toList();
-      }
-
-      if (!mounted || currentRequestId != _searchRequestId) return;
-
-      // 3. Aguardar mangá/manhwa (que já corriam em paralelo)
-      final mangaResults =
-          await (mangaFuture ?? Future.value(<SearchResult>[]));
-      final manhwaResults =
-          await (manhwaFuture ?? Future.value(<SearchResult>[]));
-
-      if (!mounted || currentRequestId != _searchRequestId) return;
-
-      // 4. Montar lista final e ordenar
-      final allResults = [
-        ...catalogBooks,
-        ...apiBooks,
-        ...mangaResults,
-        ...manhwaResults,
-      ];
-
-      if (allResults.isEmpty) {
-        setState(() {
-          _searchResults = [];
-          _filteredResults = [];
-          _errorMessage = 'Nenhum resultado encontrado.';
-          _isLoading = false;
-        });
-        return;
-      }
-
-      allResults.sort((a, b) {
-        const order = {'book': 1, 'manga': 2, 'manhwa': 3};
-        final typeCompare = (order[a.type] ?? 999).compareTo(
-          order[b.type] ?? 999,
+    // Cada fonte que responde emite um snapshot: os primeiros resultados
+    // aparecem sem esperar a API mais lenta terminar.
+    _subscription =
+        ApiService.searchStream(
+          trimmed,
+          scope: _scope,
+          catalogLookup: (q) => firestore.searchBookCatalog(q, limit: 8),
+        ).listen(
+          (snapshot) {
+            if (!mounted) return;
+            setState(() {
+              _snapshot = snapshot;
+              _isSearching = !snapshot.isDone;
+            });
+          },
+          onDone: () {
+            if (mounted) setState(() => _isSearching = false);
+          },
+          onError: (_) {
+            if (mounted) setState(() => _isSearching = false);
+          },
         );
-        if (typeCompare != 0) return typeCompare;
 
-        if (a.type == 'book') {
-          final aRatings = (a.rawData?['ratingsCount'] as num?)?.toInt() ?? 0;
-          final bRatings = (b.rawData?['ratingsCount'] as num?)?.toInt() ?? 0;
-          if (aRatings != bRatings) return bRatings.compareTo(aRatings);
-        }
-        return a.title.toLowerCase().compareTo(b.title.toLowerCase());
-      });
-
-      setState(() {
-        _searchResults = allResults;
-        _applyFilterInMemory();
-        _isLoading = false;
-      });
-    } catch (e) {
-      if (!mounted || currentRequestId != _searchRequestId) return;
-
-      String errorMessage = 'Erro na busca: $e';
-      if (e.toString().contains('429')) {
-        errorMessage =
-            'Limite de requisições atingido. Tente novamente em breve.';
-      } else if (e.toString().contains('Tempo limite')) {
-        errorMessage = 'Tempo limite excedido. Verifique sua conexão.';
-      } else if (e.toString().contains('Erro de conexão')) {
-        errorMessage = 'Erro de conexão. Verifique sua internet.';
-      }
-
-      setState(() {
-        _errorMessage = errorMessage;
-        _isLoading = false;
+    if (saveHistory) {
+      context.read<SearchHistoryService>().add(trimmed).then((recent) {
+        if (mounted) setState(() => _recent = recent);
       });
     }
+  }
+
+  void _changeScope(SearchScope scope) {
+    if (_scope == scope) return;
+    setState(() => _scope = scope);
+    if (_activeQuery.isNotEmpty) {
+      _startSearch(_activeQuery, saveHistory: false);
+    }
+  }
+
+  void _clear() {
+    _debounce?.cancel();
+    _subscription?.cancel();
+    _searchController.clear();
+    setState(() {
+      _snapshot = null;
+      _isSearching = false;
+      _activeQuery = '';
+    });
   }
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
+    super.build(context);
+
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final user = context.read<AuthService>().currentUser;
+    final firestore = context.read<FirestoreService>();
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Explorar Títulos'),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => Navigator.pop(context),
-        ),
-        actions: [
-          // Filtro de tipo
-          PopupMenuButton<String>(
-            onSelected: (value) {
-              setState(() {
-                _selectedTypeFilter = value;
-                _filterResults();
-              });
-            },
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Row(
-                children: [
-                  Text(
-                    _selectedTypeFilter == 'todos'
-                        ? 'Todos'
-                        : _selectedTypeFilter == 'manga'
-                        ? 'Mangás'
-                        : 'Livros',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: colorScheme.onPrimary,
-                    ),
-                  ),
-                  Icon(Icons.arrow_drop_down, color: colorScheme.onPrimary),
-                ],
-              ),
-            ),
-            itemBuilder: (context) => [
-              const PopupMenuItem(value: 'todos', child: Text('Todos')),
-              const PopupMenuItem(value: 'manga', child: Text('Mangás')),
-              const PopupMenuItem(value: 'book', child: Text('Livros')),
-            ],
-          ),
-        ],
-      ),
-      body: Column(
-        children: [
-          // Campo de busca
-          Container(
-            padding: const EdgeInsets.all(16),
-            child: TextField(
-              controller: _searchController,
-              decoration: InputDecoration(
-                hintText: 'Buscar em mundos e galáxias...',
-                prefixIcon: const Icon(Icons.search),
-                suffixIcon: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (_searchController.text.isNotEmpty)
-                      IconButton(
-                        icon: const Icon(Icons.clear),
-                        onPressed: () {
-                          _searchDebounce?.cancel();
-                          _searchController.clear();
-                          setState(() {
-                            _searchResults = [];
-                            _filteredResults = [];
-                            _errorMessage = null;
-                            _isLoading = false;
-                          });
-                        },
-                      ),
-                    IconButton(
-                      icon: const Icon(Icons.search),
-                      onPressed: () => _search(),
-                    ),
-                  ],
-                ),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-              onSubmitted: (_) => _search(),
-              onChanged: _onSearchChanged,
-            ),
-          ),
-
-          // Loading indicator
-          if (_isLoading)
-            const Padding(
-              padding: EdgeInsets.all(16),
-              child: Column(
-                children: [
-                  LinearProgressIndicator(),
-                  SizedBox(height: 16),
-                  Text(
-                    'Vasculhando bibliotecas...',
-                    style: TextStyle(fontStyle: FontStyle.italic),
-                  ),
-                ],
-              ),
-            ),
-
-          // Error message
-          if (_errorMessage != null)
+      body: SafeArea(
+        bottom: false,
+        child: Column(
+          children: [
             Padding(
-              padding: const EdgeInsets.all(16),
-              child: Text(
-                _errorMessage!,
-                style: TextStyle(color: colorScheme.error),
-                textAlign: TextAlign.center,
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Explorar', style: theme.textTheme.headlineMedium),
+                  const SizedBox(height: 2),
+                  Text(
+                    'Livros, mangás, manhwas e manhuas em um só lugar.',
+                    style: theme.textTheme.bodySmall,
+                  ),
+                  const SizedBox(height: 14),
+                  TextField(
+                    controller: _searchController,
+                    focusNode: _focusNode,
+                    textInputAction: TextInputAction.search,
+                    onChanged: _onQueryChanged,
+                    onSubmitted: _startSearch,
+                    decoration: InputDecoration(
+                      hintText: 'Buscar por título ou autor…',
+                      prefixIcon: const Icon(Icons.search_rounded, size: 20),
+                      suffixIcon: _searchController.text.isEmpty
+                          ? null
+                          : IconButton(
+                              icon: const Icon(Icons.close_rounded, size: 18),
+                              onPressed: _clear,
+                              tooltip: 'Limpar',
+                            ),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  _ScopeSelector(scope: _scope, onChanged: _changeScope),
+                ],
               ),
             ),
 
-          // Resultados da busca
-          Expanded(
-            child: _searchResults.isEmpty && !_isLoading
-                ? Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.search_rounded,
-                          size: 72,
-                          color: colorScheme.primary.withValues(alpha: 0.4),
-                        ),
-                        const SizedBox(height: 18),
-                        Text(
-                          'O que você quer descobrir hoje?',
-                          style: TextStyle(
-                            fontSize: 18,
-                            color: colorScheme.onSurface,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Busque por título, autor ou gênero.',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontStyle: FontStyle.italic,
-                            color: colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                      ],
-                    ),
-                  )
-                : ListView.builder(
-                    padding: const EdgeInsets.all(16),
-                    itemCount: _filteredResults.length,
-                    itemBuilder: (context, index) {
-                      final result = _filteredResults[index];
-                      return _SearchResultCard(
-                        result: result,
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) =>
-                                  AddItemScreen(searchResult: result),
-                            ),
-                          );
-                        },
-                      );
-                    },
-                  ),
+            _SearchProgressBar(
+              snapshot: _snapshot,
+              isSearching: _isSearching,
+            ),
+
+            Expanded(
+              child: StreamBuilder<List<ItemModel>>(
+                stream: user == null
+                    ? const Stream<List<ItemModel>>.empty()
+                    : firestore.getUserItems(user.uid),
+                builder: (context, shelfSnapshot) {
+                  final shelfTitles = <String>{
+                    for (final item in shelfSnapshot.data ?? const <ItemModel>[])
+                      item.name.toLowerCase().trim(),
+                  };
+                  return _buildBody(context, scheme, shelfTitles);
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBody(
+    BuildContext context,
+    ColorScheme scheme,
+    Set<String> shelfTitles,
+  ) {
+    if (_activeQuery.isEmpty) {
+      return _IdleView(
+        recent: _recent,
+        onPick: (term) {
+          _searchController.text = term;
+          _startSearch(term);
+        },
+        onClearHistory: () async {
+          await context.read<SearchHistoryService>().clear();
+          if (mounted) setState(() => _recent = const []);
+        },
+      );
+    }
+
+    final snapshot = _snapshot;
+
+    if (snapshot == null || (snapshot.isEmpty && !snapshot.isDone)) {
+      return const _ResultSkeletonList();
+    }
+
+    if (snapshot.isEmpty && snapshot.isDone) {
+      final allFailed = snapshot.failedSources.length == snapshot.totalSources;
+      return EmptyState(
+        icon: allFailed
+            ? Icons.cloud_off_rounded
+            : Icons.search_off_rounded,
+        title: allFailed ? 'Sem conexão com as fontes' : 'Nada encontrado',
+        message: allFailed
+            ? 'Não conseguimos falar com as bibliotecas agora. '
+                  'Verifique a internet e tente novamente.'
+            : 'Nenhum resultado para "$_activeQuery". '
+                  'Tente outro termo ou o nome do autor.',
+        action: FilledButton.icon(
+          onPressed: () {
+            ApiService.reset();
+            _startSearch(_activeQuery, saveHistory: false);
+          },
+          icon: const Icon(Icons.refresh_rounded, size: 18),
+          label: const Text('Tentar novamente'),
+        ),
+      );
+    }
+
+    final results = snapshot.results;
+
+    return ListView.separated(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 100),
+      itemCount: results.length + (snapshot.isDone ? 0 : 1),
+      separatorBuilder: (_, __) => const SizedBox(height: 10),
+      itemBuilder: (context, index) {
+        if (index >= results.length) {
+          return const _ResultSkeletonCard();
+        }
+        final result = results[index];
+        return _ResultCard(
+          result: result,
+          alreadyInShelf: shelfTitles.contains(
+            result.title.toLowerCase().trim(),
+          ),
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => AddItemScreen(searchResult: result),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+// ─── Seletor de escopo ────────────────────────────────────────────────────────
+
+class _ScopeSelector extends StatelessWidget {
+  final SearchScope scope;
+  final ValueChanged<SearchScope> onChanged;
+
+  const _ScopeSelector({required this.scope, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) {
+    const options = <(SearchScope, String, IconData)>[
+      (SearchScope.all, 'Tudo', Icons.auto_awesome_rounded),
+      (SearchScope.books, 'Livros', Icons.menu_book_rounded),
+      (SearchScope.comics, 'Mangás & Manhwas', Icons.import_contacts_rounded),
+    ];
+
+    return SizedBox(
+      height: 38,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: options.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 8),
+        itemBuilder: (context, index) {
+          final (value, label, icon) = options[index];
+          final selected = scope == value;
+          return ChoiceChip(
+            selected: selected,
+            onSelected: (_) => onChanged(value),
+            avatar: Icon(
+              icon,
+              size: 15,
+              color: selected
+                  ? Theme.of(context).colorScheme.onPrimaryContainer
+                  : Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+            label: Text(label),
+          );
+        },
+      ),
+    );
+  }
+}
+
+// ─── Barra de progresso das fontes ────────────────────────────────────────────
+
+class _SearchProgressBar extends StatelessWidget {
+  final SearchSnapshot? snapshot;
+  final bool isSearching;
+
+  const _SearchProgressBar({required this.snapshot, required this.isSearching});
+
+  @override
+  Widget build(BuildContext context) {
+    if (!isSearching) return const SizedBox(height: 12);
+
+    final theme = Theme.of(context);
+    final done = snapshot == null
+        ? 0
+        : snapshot!.totalSources - snapshot!.pendingSources;
+    final total = snapshot?.totalSources ?? 0;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 2),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(AppRadius.pill),
+            child: LinearProgressIndicator(
+              minHeight: 3,
+              value: total == 0 ? null : done / total,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            total == 0
+                ? 'Consultando bibliotecas…'
+                : 'Consultando bibliotecas… $done de $total',
+            style: theme.textTheme.labelSmall,
           ),
         ],
       ),
@@ -378,138 +392,285 @@ class _SearchScreenState extends State<SearchScreen> {
   }
 }
 
-class _SearchResultCard extends StatelessWidget {
-  final SearchResult result;
-  final VoidCallback onTap;
+// ─── Tela inicial da busca ────────────────────────────────────────────────────
 
-  const _SearchResultCard({required this.result, required this.onTap});
+class _IdleView extends StatelessWidget {
+  final List<String> recent;
+  final ValueChanged<String> onPick;
+  final VoidCallback onClearHistory;
+
+  const _IdleView({
+    required this.recent,
+    required this.onPick,
+    required this.onClearHistory,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
+    final theme = Theme.of(context);
 
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(16, 20, 16, 100),
+      children: [
+        if (recent.isNotEmpty) ...[
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Buscas recentes',
+                  style: theme.textTheme.titleSmall,
+                ),
+              ),
+              TextButton(
+                onPressed: onClearHistory,
+                child: const Text('Limpar'),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final term in recent)
+                ActionChip(
+                  avatar: const Icon(Icons.history_rounded, size: 15),
+                  label: Text(term),
+                  onPressed: () => onPick(term),
+                ),
+            ],
+          ),
+          const SizedBox(height: 28),
+        ],
+        Text('Sugestões', style: theme.textTheme.titleSmall),
+        const SizedBox(height: 10),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            for (final term in _suggestions)
+              ActionChip(label: Text(term), onPressed: () => onPick(term)),
+          ],
+        ),
+        const SizedBox(height: 36),
+        Center(
+          child: Icon(
+            Icons.travel_explore_rounded,
+            size: 64,
+            color: theme.colorScheme.primary.withValues(alpha: 0.28),
+          ),
+        ),
+        const SizedBox(height: 14),
+        Text(
+          'O que você quer descobrir hoje?',
+          textAlign: TextAlign.center,
+          style: theme.textTheme.titleMedium,
+        ),
+        const SizedBox(height: 6),
+        Text(
+          'Consultamos MangaDex, Kitsu, MyAnimeList, Google Books e '
+          'Open Library ao mesmo tempo — os resultados aparecem conforme '
+          'cada fonte responde.',
+          textAlign: TextAlign.center,
+          style: theme.textTheme.bodySmall,
+        ),
+      ],
+    );
+  }
+}
+
+// ─── Card de resultado ────────────────────────────────────────────────────────
+
+class _ResultCard extends StatelessWidget {
+  final SearchResult result;
+  final bool alreadyInShelf;
+  final VoidCallback onTap;
+
+  const _ResultCard({
+    required this.result,
+    required this.alreadyInShelf,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final typeColor = AppColors.forType(result.type);
+
+    final meta = <String>[
+      if (result.year != null && result.year!.isNotEmpty) result.year!,
+      if (result.totalUnits != null && result.totalUnits! > 0)
+        result.isBook
+            ? '${result.totalUnits} págs'
+            : '${result.totalUnits} caps',
+      result.source.label,
+    ];
+
+    return Material(
+      color: scheme.surfaceContainerLow,
+      borderRadius: BorderRadius.circular(AppRadius.md),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.all(12),
+        borderRadius: BorderRadius.circular(AppRadius.md),
+        child: Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(AppRadius.md),
+            border: Border.all(color: scheme.outlineVariant),
+          ),
+          padding: const EdgeInsets.all(11),
           child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Imagem
-              Container(
-                width: 60,
-                height: 80,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(8),
-                  color: colorScheme.surface,
-                ),
-                child: result.imageUrl != null
-                    ? ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
-                        child: AdaptiveNetworkImage(
-                          imageUrl: result.imageUrl!,
-                          fit: BoxFit.cover,
-                          fallback: Container(
-                            color: colorScheme.surface,
-                            child: Icon(
-                              result.type == 'manga'
-                                  ? Icons.book
-                                  : Icons.menu_book,
-                              color: colorScheme.secondary,
-                            ),
-                          ),
-                        ),
-                      )
-                    : Icon(
-                        result.type == 'manga' ? Icons.book : Icons.menu_book,
-                        color: colorScheme.secondary,
-                        size: 30,
-                      ),
+              CoverArt(
+                imageUrl: result.imageUrl,
+                title: result.title,
+                width: 58,
+                height: 86,
+                decodeWidth: 120,
+                fallbackIcon: result.isBook
+                    ? Icons.menu_book_rounded
+                    : Icons.import_contacts_rounded,
               ),
               const SizedBox(width: 12),
-
-              // Informações
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Título
                     Text(
                       result.title,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.titleMedium,
                     ),
-                    const SizedBox(height: 4),
-
-                    // Tipo
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 2,
-                      ),
-                      decoration: BoxDecoration(
-                        color: result.type == 'manga'
-                            ? const Color(0xFF4F6C73).withValues(alpha: 0.16)
-                            : const Color(0xFF697345).withValues(alpha: 0.16),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Text(
-                        result.type == 'manga' ? 'Mangá' : 'Livro',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: result.type == 'manga'
-                              ? const Color(0xFF4F6C73)
-                              : const Color(0xFF697345),
-                          fontWeight: FontWeight.bold,
+                    const SizedBox(height: 5),
+                    Row(
+                      children: [
+                        TypeBadge(
+                          label: result.typeLabel,
+                          color: typeColor,
+                          compact: true,
                         ),
-                      ),
+                        if (result.score != null && result.score! > 0) ...[
+                          const SizedBox(width: 8),
+                          Icon(
+                            Icons.star_rounded,
+                            size: 13,
+                            color: AppColors.gold,
+                          ),
+                          const SizedBox(width: 2),
+                          Text(
+                            result.score!.toStringAsFixed(1),
+                            style: theme.textTheme.labelSmall,
+                          ),
+                        ],
+                        if (alreadyInShelf) ...[
+                          const SizedBox(width: 8),
+                          Icon(
+                            Icons.library_add_check_rounded,
+                            size: 14,
+                            color: AppColors.statusRead,
+                          ),
+                          const SizedBox(width: 3),
+                          Text(
+                            'Na estante',
+                            style: theme.textTheme.labelSmall?.copyWith(
+                              color: AppColors.statusRead,
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
-                    const SizedBox(height: 4),
-
-                    // Autores (se disponível)
-                    if (result.authors != null && result.authors!.isNotEmpty)
+                    if (result.authors != null &&
+                        result.authors!.isNotEmpty) ...[
+                      const SizedBox(height: 5),
                       Text(
-                        result.authors!.join(', '),
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: colorScheme.secondary,
-                        ),
+                        result.authors!.take(2).join(', '),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                      ),
-
-                    // Descrição (se disponível)
-                    if (result.description != null &&
-                        result.description!.isNotEmpty)
-                      Text(
-                        result.description!,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: colorScheme.secondary.withValues(alpha: 0.8),
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: scheme.onSurfaceVariant,
                         ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
                       ),
+                    ],
+                    const SizedBox(height: 4),
+                    Text(
+                      meta.join('  ·  '),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: scheme.onSurfaceVariant.withValues(alpha: 0.75),
+                      ),
+                    ),
                   ],
                 ),
               ),
-
-              // Botão de ação
-              IconButton(
+              const SizedBox(width: 6),
+              IconButton.filledTonal(
                 onPressed: onTap,
-                icon: const Icon(Icons.add_circle),
-                color: colorScheme.primary,
-                tooltip: 'Adicionar',
+                iconSize: 18,
+                visualDensity: VisualDensity.compact,
+                icon: const Icon(Icons.add_rounded),
+                tooltip: 'Adicionar à estante',
               ),
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+// ─── Skeletons ────────────────────────────────────────────────────────────────
+
+class _ResultSkeletonList extends StatelessWidget {
+  const _ResultSkeletonList();
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView.separated(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 100),
+      itemCount: 6,
+      separatorBuilder: (_, __) => const SizedBox(height: 10),
+      itemBuilder: (_, __) => const _ResultSkeletonCard(),
+    );
+  }
+}
+
+class _ResultSkeletonCard extends StatelessWidget {
+  const _ResultSkeletonCard();
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+
+    return Container(
+      padding: const EdgeInsets.all(11),
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(AppRadius.md),
+        border: Border.all(color: scheme.outlineVariant),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SkeletonBox(width: 58, height: 86, radius: AppRadius.sm),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: const [
+                SkeletonBox(height: 14, width: 190),
+                SizedBox(height: 10),
+                SkeletonBox(height: 12, width: 90),
+                SizedBox(height: 10),
+                SkeletonBox(height: 11, width: 140),
+                SizedBox(height: 8),
+                SkeletonBox(height: 11, width: 110),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

@@ -1,102 +1,90 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import '../models/item_model.dart';
+
 import '../models/api_models.dart';
+import '../models/item_model.dart';
 
 class FirestoreService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
 
-  // Coleção de itens
   CollectionReference get _itemsCollection => _db.collection('items');
 
-  // Coleção de catálogo compartilhado de livros
-  CollectionReference get _bookCatalogCollection =>
-      _db.collection('book_catalog');
+  /// Catálogo compartilhado — guarda títulos já pesquisados por qualquer
+  /// usuário para que a próxima busca pelo mesmo termo seja instantânea.
+  CollectionReference get _catalogCollection => _db.collection('book_catalog');
 
-  // Adicionar novo item
+  String _friendlyError(Object e, String action) {
+    final text = e.toString();
+    if (text.contains('permission-denied')) {
+      return 'Sem permissão para $action. Verifique as regras do Firestore.';
+    }
+    if (text.contains('unavailable')) {
+      return 'Sem conexão. Verifique sua internet e tente de novo.';
+    }
+    return 'Não foi possível $action: $e';
+  }
+
+  // ─── CRUD ─────────────────────────────────────────────────────────────────
+
   Future<String> addItem(ItemModel item) async {
     try {
       final docRef = await _itemsCollection.add(item.toFirestore());
       return docRef.id;
     } catch (e) {
-      if (e.toString().contains('permission-denied')) {
-        throw Exception(
-          'Erro de permissão: Configure as regras de segurança do Firestore primeiro',
-        );
-      } else if (e.toString().contains('unavailable')) {
-        throw Exception(
-          'Erro de conexão: Verifique sua conexão com a internet',
-        );
-      } else {
-        throw Exception('Erro ao adicionar item: $e');
-      }
+      throw Exception(_friendlyError(e, 'adicionar o item'));
     }
   }
 
-  // Atualizar item existente
   Future<void> updateItem(ItemModel item) async {
     try {
       await _itemsCollection.doc(item.id).update(item.toFirestore());
     } catch (e) {
-      if (e.toString().contains('permission-denied')) {
-        throw Exception(
-          'Erro de permissão: Configure as regras de segurança do Firestore primeiro',
-        );
-      } else if (e.toString().contains('unavailable')) {
-        throw Exception(
-          'Erro de conexão: Verifique sua conexão com a internet',
-        );
-      } else {
-        throw Exception('Erro ao atualizar item: $e');
-      }
+      throw Exception(_friendlyError(e, 'atualizar o item'));
     }
   }
 
-  // Remover item
+  /// Atualização parcial usada pelos atalhos de progresso (+1 capítulo etc.),
+  /// evitando reescrever o documento inteiro.
+  Future<void> updateFields(String itemId, Map<String, dynamic> fields) async {
+    try {
+      await _itemsCollection.doc(itemId).update({
+        ...fields,
+        'updatedAt': Timestamp.fromDate(DateTime.now()),
+      });
+    } catch (e) {
+      throw Exception(_friendlyError(e, 'atualizar o item'));
+    }
+  }
+
   Future<void> deleteItem(String itemId) async {
     try {
       await _itemsCollection.doc(itemId).delete();
     } catch (e) {
-      if (e.toString().contains('permission-denied')) {
-        throw Exception(
-          'Erro de permissão: Configure as regras de segurança do Firestore primeiro',
-        );
-      } else if (e.toString().contains('unavailable')) {
-        throw Exception(
-          'Erro de conexão: Verifique sua conexão com a internet',
-        );
-      } else {
-        throw Exception('Erro ao remover item: $e');
-      }
+      throw Exception(_friendlyError(e, 'remover o item'));
     }
   }
 
-  // Buscar itens do usuário
+  // ─── Consultas ────────────────────────────────────────────────────────────
+
   Stream<List<ItemModel>> getUserItems(String userId) {
     return _itemsCollection
         .where('userId', isEqualTo: userId)
         .orderBy('updatedAt', descending: true)
         .snapshots()
-        .map((snapshot) {
-          return snapshot.docs
-              .map((doc) => ItemModel.fromFirestore(doc))
-              .toList();
-        });
+        .map(
+          (snapshot) =>
+              snapshot.docs.map((doc) => ItemModel.fromFirestore(doc)).toList(),
+        );
   }
 
-  // Buscar item específico
   Future<ItemModel?> getItem(String itemId) async {
     try {
       final doc = await _itemsCollection.doc(itemId).get();
-      if (doc.exists) {
-        return ItemModel.fromFirestore(doc);
-      }
-      return null;
+      return doc.exists ? ItemModel.fromFirestore(doc) : null;
     } catch (e) {
-      throw Exception('Erro ao buscar item: $e');
+      throw Exception(_friendlyError(e, 'buscar o item'));
     }
   }
 
-  // Buscar itens por status
   Stream<List<ItemModel>> getUserItemsByStatus(
     String userId,
     ReadingStatus status,
@@ -106,138 +94,128 @@ class FirestoreService {
         .where('status', isEqualTo: status.index)
         .orderBy('updatedAt', descending: true)
         .snapshots()
-        .map((snapshot) {
-          return snapshot.docs
-              .map((doc) => ItemModel.fromFirestore(doc))
-              .toList();
-        });
+        .map(
+          (snapshot) =>
+              snapshot.docs.map((doc) => ItemModel.fromFirestore(doc)).toList(),
+        );
   }
 
-  // Buscar itens por tipo
   Stream<List<ItemModel>> getUserItemsByType(String userId, ItemType type) {
     return _itemsCollection
         .where('userId', isEqualTo: userId)
         .where('type', isEqualTo: type.index)
         .orderBy('updatedAt', descending: true)
         .snapshots()
-        .map((snapshot) {
-          return snapshot.docs
-              .map((doc) => ItemModel.fromFirestore(doc))
-              .toList();
-        });
+        .map(
+          (snapshot) =>
+              snapshot.docs.map((doc) => ItemModel.fromFirestore(doc)).toList(),
+        );
   }
 
-  // Buscar estatísticas do usuário
+  /// Estatísticas derivadas de uma lista já carregada — evita uma segunda
+  /// leitura completa da coleção só para contar itens.
+  static Map<String, dynamic> statsFrom(List<ItemModel> items) {
+    var totalMangas = 0;
+    var totalBooks = 0;
+    var readCount = 0;
+    var readingCount = 0;
+    var wantToReadCount = 0;
+    var totalRating = 0.0;
+    var ratedCount = 0;
+
+    for (final item in items) {
+      if (item.type.isBook) {
+        totalBooks++;
+      } else {
+        totalMangas++;
+      }
+
+      switch (item.status) {
+        case ReadingStatus.read:
+          readCount++;
+        case ReadingStatus.reading:
+          readingCount++;
+        case ReadingStatus.wantToRead:
+          wantToReadCount++;
+      }
+
+      if (item.rating > 0) {
+        totalRating += item.rating;
+        ratedCount++;
+      }
+    }
+
+    return {
+      'totalItems': items.length,
+      'totalMangas': totalMangas,
+      'totalBooks': totalBooks,
+      'readCount': readCount,
+      'readingCount': readingCount,
+      'wantToReadCount': wantToReadCount,
+      'averageRating': ratedCount > 0 ? totalRating / ratedCount : 0.0,
+      'ratedCount': ratedCount,
+    };
+  }
+
   Future<Map<String, dynamic>> getUserStats(String userId) async {
     try {
       final snapshot = await _itemsCollection
           .where('userId', isEqualTo: userId)
           .get();
-
-      int totalMangas = 0;
-      int totalBooks = 0;
-      int readCount = 0;
-      int readingCount = 0;
-      int wantToReadCount = 0;
-      double totalRating = 0;
-      int ratedCount = 0;
-
-      for (final doc in snapshot.docs) {
-        final item = ItemModel.fromFirestore(doc);
-
-        if (item.type == ItemType.manga) {
-          totalMangas++;
-        } else {
-          totalBooks++;
-        }
-
-        switch (item.status) {
-          case ReadingStatus.read:
-            readCount++;
-            break;
-          case ReadingStatus.reading:
-            readingCount++;
-            break;
-          case ReadingStatus.wantToRead:
-            wantToReadCount++;
-            break;
-        }
-
-        if (item.rating > 0) {
-          totalRating += item.rating;
-          ratedCount++;
-        }
-      }
-
-      return {
-        'totalItems': snapshot.docs.length,
-        'totalMangas': totalMangas,
-        'totalBooks': totalBooks,
-        'readCount': readCount,
-        'readingCount': readingCount,
-        'wantToReadCount': wantToReadCount,
-        'averageRating': ratedCount > 0 ? totalRating / ratedCount : 0.0,
-        'ratedCount': ratedCount,
-      };
+      return statsFrom(
+        snapshot.docs.map((doc) => ItemModel.fromFirestore(doc)).toList(),
+      );
     } catch (e) {
-      // Melhorar tratamento de erros para problemas de permissão
-      if (e.toString().contains('permission-denied')) {
-        throw Exception(
-          'Erro de permissão: As regras de segurança do Firestore precisam ser configuradas. Execute o arquivo deploy_firestore_rules.bat',
-        );
-      } else if (e.toString().contains('unavailable')) {
-        throw Exception(
-          'Erro de conexão: Verifique sua conexão com a internet',
-        );
-      } else {
-        throw Exception('Erro ao buscar estatísticas: $e');
-      }
+      throw Exception(_friendlyError(e, 'carregar as estatísticas'));
     }
   }
 
-  // Salva (ou atualiza) um livro no catálogo compartilhado. Fire-and-forget seguro.
+  // ─── Catálogo compartilhado ───────────────────────────────────────────────
+
+  /// Guarda o título no catálogo. Silencioso de propósito: nunca deve impedir
+  /// o usuário de salvar o próprio item.
   Future<void> upsertBookToCatalog(SearchResult result, String userId) async {
     try {
-      final docRef = _bookCatalogCollection.doc(result.id);
       final data = <String, dynamic>{
         'externalId': result.id,
         'title': result.title,
         'titleLower': result.title.toLowerCase(),
+        'type': result.type,
         'imageUrl': result.imageUrl,
         'description': result.description,
-        'authors': result.authors ?? [],
+        'authors': result.authors ?? const [],
+        'year': result.year,
+        'totalUnits': result.totalUnits,
+        'genres': result.genres ?? const [],
+        'popularity': result.popularity,
         'addedBy': userId,
         'addedAt': FieldValue.serverTimestamp(),
       };
 
-      final raw = result.rawData;
-      if (raw != null) {
-        if (raw['publishedDate'] != null) {
-          data['publishedDate'] = raw['publishedDate'].toString();
-        }
-        if (raw['pageCount'] != null) data['pageCount'] = raw['pageCount'];
-        if (raw['averageRating'] != null) {
-          data['averageRating'] = raw['averageRating'];
-        }
-        if (raw['genres'] is List) data['genres'] = raw['genres'];
-      }
-
-      await docRef.set(data, SetOptions(merge: true));
+      await _catalogCollection
+          .doc(result.id)
+          .set(data, SetOptions(merge: true));
     } catch (_) {
-      // Falha silenciosa — não impede o usuário de salvar seu item
+      // Cache best-effort.
     }
   }
 
-  // Busca livros no catálogo compartilhado por prefixo de título
+  /// Busca por prefixo de título no catálogo. Responde em poucas centenas de
+  /// milissegundos e é a primeira fonte a aparecer na tela.
+  ///
+  /// O `\uf8ff` no limite superior é o truque padrão de prefixo do Firestore:
+  /// é quase o último code point da área de uso privado, então a faixa cobre
+  /// todo título que comece por `q`. Escrito como escape de propósito — como
+  /// caractere literal ele fica invisível no editor e some em um copiar/colar.
   Future<List<SearchResult>> searchBookCatalog(
     String query, {
     int limit = 10,
   }) async {
-    try {
-      final q = query.toLowerCase().trim();
-      if (q.isEmpty) return [];
+    final q = query.toLowerCase().trim();
+    if (q.isEmpty) return const [];
 
-      final snapshot = await _bookCatalogCollection
+    try {
+      final snapshot = await _catalogCollection
           .where('titleLower', isGreaterThanOrEqualTo: q)
           .where('titleLower', isLessThanOrEqualTo: '$q\uf8ff')
           .limit(limit)
@@ -246,20 +224,26 @@ class FirestoreService {
       return snapshot.docs
           .map((doc) {
             final d = doc.data() as Map<String, dynamic>;
-            final authors = (d['authors'] as List<dynamic>?)
-                ?.map((e) => e.toString())
-                .toList();
             return SearchResult(
               id: d['externalId']?.toString() ?? doc.id,
               title: d['title']?.toString() ?? '',
               imageUrl: d['imageUrl']?.toString(),
               description: d['description']?.toString(),
-              authors: authors,
-              type: 'book',
+              authors: (d['authors'] as List<dynamic>?)
+                  ?.map((e) => e.toString())
+                  .toList(),
+              type: d['type']?.toString() ?? 'book',
+              source: SearchSource.catalog,
+              year: d['year']?.toString(),
+              totalUnits: (d['totalUnits'] as num?)?.toInt(),
+              genres: (d['genres'] as List<dynamic>?)
+                  ?.map((e) => e.toString())
+                  .toList(),
+              popularity: (d['popularity'] as num?)?.toInt() ?? 0,
               rawData: {
-                'publishedDate': d['publishedDate'],
-                'pageCount': d['pageCount'],
-                'averageRating': d['averageRating'],
+                'publishedDate': d['year'],
+                'pageCount': d['totalUnits'],
+                'chapters': d['totalUnits'],
                 'genres': d['genres'],
               },
             );
@@ -267,11 +251,60 @@ class FirestoreService {
           .where((r) => r.title.isNotEmpty)
           .toList();
     } catch (_) {
-      return [];
+      return const [];
     }
   }
 
-  // Migração: normaliza URLs de capa com http:// para https:// (evita mixed content no Web)
+  // ─── Conta e dados ────────────────────────────────────────────────────────
+
+  /// Lê a estante inteira uma única vez. Usado pela exportação, que precisa de
+  /// um retrato do momento e não de um stream.
+  Future<List<ItemModel>> fetchUserItemsOnce(String userId) async {
+    try {
+      final snapshot = await _itemsCollection
+          .where('userId', isEqualTo: userId)
+          .orderBy('updatedAt', descending: true)
+          .get();
+      return snapshot.docs.map((doc) => ItemModel.fromFirestore(doc)).toList();
+    } catch (e) {
+      throw Exception(_friendlyError(e, 'carregar seus dados'));
+    }
+  }
+
+  /// Apaga todos os documentos do usuário. Precisa rodar ANTES de excluir a
+  /// conta no Auth: as regras exigem `request.auth.uid`, então um usuário já
+  /// removido não consegue mais apagar os próprios itens e eles ficariam órfãos.
+  ///
+  /// Retorna quantos documentos foram removidos.
+  Future<int> deleteAllUserData(String userId) async {
+    try {
+      final snapshot = await _itemsCollection
+          .where('userId', isEqualTo: userId)
+          .get();
+
+      var deleted = 0;
+      // O Firestore limita cada batch a 500 operações.
+      for (var start = 0; start < snapshot.docs.length; start += 500) {
+        final end = (start + 500 < snapshot.docs.length)
+            ? start + 500
+            : snapshot.docs.length;
+        final batch = _db.batch();
+        for (final doc in snapshot.docs.sublist(start, end)) {
+          batch.delete(doc.reference);
+        }
+        await batch.commit();
+        deleted += end - start;
+      }
+
+      return deleted;
+    } catch (e) {
+      throw Exception(_friendlyError(e, 'apagar seus dados'));
+    }
+  }
+
+  // ─── Manutenção ───────────────────────────────────────────────────────────
+
+  /// Normaliza capas http:// para https:// (mixed content no Web).
   Future<int> migrateUserImageUrlsToHttps(String userId) async {
     try {
       final snapshot = await _itemsCollection
@@ -279,7 +312,7 @@ class FirestoreService {
           .get();
 
       final batch = _db.batch();
-      int updatedCount = 0;
+      var updatedCount = 0;
 
       for (final doc in snapshot.docs) {
         final data = doc.data() as Map<String, dynamic>;
@@ -294,13 +327,10 @@ class FirestoreService {
         }
       }
 
-      if (updatedCount > 0) {
-        await batch.commit();
-      }
-
+      if (updatedCount > 0) await batch.commit();
       return updatedCount;
     } catch (e) {
-      throw Exception('Erro ao migrar URLs de imagem para HTTPS: $e');
+      throw Exception(_friendlyError(e, 'migrar as capas para HTTPS'));
     }
   }
 }

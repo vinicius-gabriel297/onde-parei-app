@@ -1,13 +1,15 @@
 {
-    "name": "onde_parei",
-    "short_name": "onde_parei",
+    "name": "Onde Parei?",
+    "short_name": "Onde Parei?",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "background_color": "#14100B",
+    "theme_color": "#14100B",
+    "description": "Acompanhe onde você parou em cada livro, mangá, manhwa e manhua da sua estante.",
+    "lang": "pt-BR",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
+    "categories": ["books", "productivity", "lifestyle"],
     "icons": [
         {
             "src": "icons/Icon-192.png",
