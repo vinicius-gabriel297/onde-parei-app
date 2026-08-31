@@ -91,6 +91,17 @@ class AuthService {
     }
   }
 
+  // Atualizar nome de exibicao (fica salvo no Firebase e sincroniza entre
+  // dispositivos, diferente do SharedPreferences local)
+  Future<void> updateDisplayName(String displayName) async {
+    try {
+      await currentUser?.updateDisplayName(displayName.trim());
+      await currentUser?.reload();
+    } on FirebaseAuthException catch (e) {
+      throw _handleAuthException(e);
+    }
+  }
+
   // Excluir conta
   Future<void> deleteAccount() async {
     try {

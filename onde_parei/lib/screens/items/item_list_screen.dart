@@ -1,10 +1,31 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
+import '../../models/item_model.dart';
 import '../../services/auth_service.dart';
 import '../../services/firestore_service.dart';
-import '../../models/item_model.dart';
-import '../../widgets/adaptive_network_image.dart';
+import '../../theme/app_theme.dart';
+import '../../widgets/ui_kit.dart';
+import '../home/home_screen.dart';
+import '../home/home_shell.dart';
 import 'edit_item_screen.dart';
+
+enum ShelfSort { recent, title, rating, progress }
+
+extension on ShelfSort {
+  String get label {
+    switch (this) {
+      case ShelfSort.recent:
+        return 'Atualizados';
+      case ShelfSort.title:
+        return 'Título (A–Z)';
+      case ShelfSort.rating:
+        return 'Melhor nota';
+      case ShelfSort.progress:
+        return 'Mais avançados';
+    }
+  }
+}
 
 class ItemListScreen extends StatefulWidget {
   const ItemListScreen({super.key});
@@ -13,17 +34,62 @@ class ItemListScreen extends StatefulWidget {
   State<ItemListScreen> createState() => _ItemListScreenState();
 }
 
-class _ItemListScreenState extends State<ItemListScreen> {
-  ReadingStatus? _selectedStatusFilter;
-  ItemType? _selectedTypeFilter;
+class _ItemListScreenState extends State<ItemListScreen>
+    with AutomaticKeepAliveClientMixin {
+  final _searchController = TextEditingController();
+
+  ReadingStatus? _statusFilter;
+  ItemType? _typeFilter;
+  ShelfSort _sort = ShelfSort.recent;
+  bool _gridView = true;
+  String _query = '';
+
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  List<ItemModel> _apply(List<ItemModel> items) {
+    final query = _query.toLowerCase().trim();
+
+    final filtered = items.where((item) {
+      if (_statusFilter != null && item.status != _statusFilter) return false;
+      if (_typeFilter != null && item.type != _typeFilter) return false;
+      if (query.isEmpty) return true;
+      return item.name.toLowerCase().contains(query) ||
+          (item.author ?? '').toLowerCase().contains(query);
+    }).toList();
+
+    switch (_sort) {
+      case ShelfSort.recent:
+        filtered.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+      case ShelfSort.title:
+        filtered.sort(
+          (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()),
+        );
+      case ShelfSort.rating:
+        filtered.sort((a, b) => b.rating.compareTo(a.rating));
+      case ShelfSort.progress:
+        filtered.sort(
+          (a, b) => (b.progress ?? -1).compareTo(a.progress ?? -1),
+        );
+    }
+
+    return filtered;
+  }
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final authService = Provider.of<AuthService>(context);
-    final firestoreService = Provider.of<FirestoreService>(context);
+    super.build(context);
 
-    final user = authService.currentUser;
+    final theme = Theme.of(context);
+    final user = context.read<AuthService>().currentUser;
+    final firestore = context.read<FirestoreService>();
+
     if (user == null) {
       return const Scaffold(
         body: Center(child: Text('Usuário não autenticado')),
@@ -31,401 +97,424 @@ class _ItemListScreenState extends State<ItemListScreen> {
     }
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Minha Estante'),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => Navigator.pop(context),
-        ),
-        actions: [
-          // Filtros com melhor espaçamento
-          Container(
-            margin: const EdgeInsets.only(right: 8),
-            child: PopupMenuButton<String>(
-              onSelected: (value) {
-                setState(() {
-                  if (value == 'all') {
-                    _selectedStatusFilter = null;
-                    _selectedTypeFilter = null;
-                  } else if (value.startsWith('status_')) {
-                    final statusIndex = int.parse(value.split('_')[1]);
-                    _selectedStatusFilter = ReadingStatus.values[statusIndex];
-                    _selectedTypeFilter = null;
-                  } else if (value.startsWith('type_')) {
-                    final typeIndex = int.parse(value.split('_')[1]);
-                    _selectedTypeFilter = ItemType.values[typeIndex];
-                    _selectedStatusFilter = null;
-                  }
-                });
-              },
-              itemBuilder: (context) => [
-                const PopupMenuItem(value: 'all', child: Text('Todos')),
-                const PopupMenuDivider(),
-                const PopupMenuItem(value: 'status_0', child: Text('Lidos')),
-                const PopupMenuItem(value: 'status_1', child: Text('Lendo')),
-                const PopupMenuItem(
-                  value: 'status_2',
-                  child: Text('Pretendo ler'),
+      body: SafeArea(
+        bottom: false,
+        child: StreamBuilder<List<ItemModel>>(
+          stream: firestore.getUserItems(user.uid),
+          builder: (context, snapshot) {
+            final all = snapshot.data ?? const <ItemModel>[];
+            final items = _apply(all);
+            final loading =
+                snapshot.connectionState == ConnectionState.waiting;
+
+            return Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Minha estante',
+                              style: theme.textTheme.headlineMedium,
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              all.isEmpty
+                                  ? 'Nada guardado ainda'
+                                  : '${items.length} de ${all.length} títulos',
+                              style: theme.textTheme.bodySmall,
+                            ),
+                          ],
+                        ),
+                      ),
+                      IconButton(
+                        tooltip: _gridView ? 'Ver em lista' : 'Ver em grade',
+                        onPressed: () => setState(() => _gridView = !_gridView),
+                        icon: Icon(
+                          _gridView
+                              ? Icons.view_list_rounded
+                              : Icons.grid_view_rounded,
+                        ),
+                      ),
+                      PopupMenuButton<ShelfSort>(
+                        tooltip: 'Ordenar',
+                        icon: const Icon(Icons.swap_vert_rounded),
+                        initialValue: _sort,
+                        onSelected: (value) => setState(() => _sort = value),
+                        itemBuilder: (_) => [
+                          for (final option in ShelfSort.values)
+                            PopupMenuItem(
+                              value: option,
+                              child: Text(option.label),
+                            ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
-                const PopupMenuDivider(),
-                const PopupMenuItem(value: 'type_0', child: Text('Mangás')),
-                const PopupMenuItem(value: 'type_1', child: Text('Livros')),
+
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+                  child: TextField(
+                    controller: _searchController,
+                    onChanged: (value) => setState(() => _query = value),
+                    decoration: InputDecoration(
+                      isDense: true,
+                      hintText: 'Filtrar por título ou autor…',
+                      prefixIcon: const Icon(Icons.filter_alt_outlined, size: 19),
+                      suffixIcon: _query.isEmpty
+                          ? null
+                          : IconButton(
+                              icon: const Icon(Icons.close_rounded, size: 18),
+                              onPressed: () {
+                                _searchController.clear();
+                                setState(() => _query = '');
+                              },
+                            ),
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 10),
+                _FilterChips(
+                  statusFilter: _statusFilter,
+                  typeFilter: _typeFilter,
+                  onStatus: (value) => setState(() {
+                    _statusFilter = value;
+                  }),
+                  onType: (value) => setState(() {
+                    _typeFilter = value;
+                  }),
+                ),
+                const SizedBox(height: 6),
+
+                Expanded(
+                  child: loading
+                      ? const Center(child: CircularProgressIndicator())
+                      : items.isEmpty
+                      ? _emptyState(all.isEmpty)
+                      : _gridView
+                      ? _buildGrid(items)
+                      : _buildList(items, firestore),
+                ),
               ],
-              child: Container(
-                padding: const EdgeInsets.all(8),
-                child: const Icon(Icons.filter_list),
-              ),
-            ),
-          ),
-        ],
-      ),
-      body: StreamBuilder<List<ItemModel>>(
-        stream: _getFilteredStream(firestoreService, user.uid),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
-
-          if (snapshot.hasError) {
-            return Center(
-              child: Text(
-                'Erro ao carregar itens: ${snapshot.error}',
-                style: TextStyle(color: colorScheme.error),
-              ),
             );
-          }
-
-          final items = snapshot.data ?? [];
-
-          if (items.isEmpty) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    Icons.menu_book_rounded,
-                    size: 80,
-                    color: colorScheme.primary.withValues(alpha: 0.4),
-                  ),
-                  const SizedBox(height: 18),
-                  Text(
-                    'Esta prateleira está vazia...',
-                    style: TextStyle(
-                      fontSize: 18,
-                      color: colorScheme.onSurface,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Os livros certos ainda estão por vir.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontStyle: FontStyle.italic,
-                      color: colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                ],
-              ),
-            );
-          }
-
-          return ListView.builder(
-            padding: const EdgeInsets.all(16),
-            itemCount: items.length,
-            itemBuilder: (context, index) {
-              final item = items[index];
-              return _ItemCard(
-                item: item,
-                onTap: () {
-                  // TODO: Navegar para tela de detalhes
-                },
-                onEdit: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => EditItemScreen(item: item),
-                    ),
-                  );
-                },
-                onDelete: () {
-                  _showDeleteDialog(context, firestoreService, item);
-                },
-              );
-            },
-          );
-        },
+          },
+        ),
       ),
-      // Removed floating action button since we have the "Meus Livros" view
     );
   }
 
-  Stream<List<ItemModel>> _getFilteredStream(
-    FirestoreService firestoreService,
-    String userId,
-  ) {
-    if (_selectedStatusFilter != null) {
-      return firestoreService.getUserItemsByStatus(
-        userId,
-        _selectedStatusFilter!,
+  Widget _emptyState(bool shelfIsEmpty) {
+    if (shelfIsEmpty) {
+      return EmptyState(
+        icon: Icons.auto_stories_rounded,
+        title: 'Estante vazia',
+        message: 'Adicione o primeiro título e comece a acompanhar sua leitura.',
+        action: FilledButton.icon(
+          onPressed: () => HomeShell.of(context)?.openSearch(),
+          icon: const Icon(Icons.search_rounded, size: 18),
+          label: const Text('Explorar títulos'),
+        ),
       );
-    } else if (_selectedTypeFilter != null) {
-      return firestoreService.getUserItemsByType(userId, _selectedTypeFilter!);
-    } else {
-      return firestoreService.getUserItems(userId);
     }
+
+    return EmptyState(
+      icon: Icons.filter_alt_off_rounded,
+      title: 'Nenhum título com esses filtros',
+      message: 'Ajuste a busca ou limpe os filtros para ver a estante inteira.',
+      action: OutlinedButton.icon(
+        onPressed: () {
+          _searchController.clear();
+          setState(() {
+            _query = '';
+            _statusFilter = null;
+            _typeFilter = null;
+          });
+        },
+        icon: const Icon(Icons.restart_alt_rounded, size: 18),
+        label: const Text('Limpar filtros'),
+      ),
+    );
   }
 
-  void _showDeleteDialog(
+  Widget _buildGrid(List<ItemModel> items) {
+    return GridView.builder(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 110),
+      gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+        maxCrossAxisExtent: 130,
+        crossAxisSpacing: 12,
+        mainAxisSpacing: 14,
+        childAspectRatio: 0.58,
+      ),
+      itemCount: items.length,
+      itemBuilder: (context, index) => ShelfCoverTile(item: items[index]),
+    );
+  }
+
+  Widget _buildList(List<ItemModel> items, FirestoreService firestore) {
+    return ListView.separated(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 110),
+      itemCount: items.length,
+      separatorBuilder: (_, __) => const SizedBox(height: 10),
+      itemBuilder: (context, index) {
+        final item = items[index];
+        return _ItemRow(
+          item: item,
+          onEdit: () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => EditItemScreen(item: item)),
+          ),
+          onDelete: () => _confirmDelete(context, firestore, item),
+        );
+      },
+    );
+  }
+
+  Future<void> _confirmDelete(
     BuildContext context,
-    FirestoreService firestoreService,
+    FirestoreService firestore,
     ItemModel item,
-  ) {
-    showDialog(
+  ) async {
+    final confirmed = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         title: const Text('Remover da estante'),
         content: Text('Deseja remover "${item.name}" da sua estante?'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(dialogContext, false),
             child: const Text('Manter'),
           ),
           TextButton(
-            onPressed: () async {
-              try {
-                await firestoreService.deleteItem(item.id);
-                if (!context.mounted) return;
-                Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Removido da estante.'),
-                    backgroundColor: Color(0xFF587A52),
-                  ),
-                );
-              } catch (e) {
-                if (!context.mounted) return;
-                Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('Erro ao excluir item: $e'),
-                    backgroundColor: Theme.of(context).colorScheme.error,
-                  ),
-                );
-              }
-            },
             style: TextButton.styleFrom(
-              foregroundColor: Theme.of(context).colorScheme.error,
+              foregroundColor: Theme.of(dialogContext).colorScheme.error,
             ),
-            child: const Text('Excluir'),
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Remover'),
           ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !context.mounted) return;
+
+    try {
+      await firestore.deleteItem(item.id);
+      if (context.mounted) {
+        AppSnack.show(
+          context,
+          'Removido da estante.',
+          icon: Icons.delete_outline_rounded,
+        );
+      }
+    } catch (e) {
+      if (context.mounted) AppSnack.error(context, '$e');
+    }
+  }
+}
+
+// ─── Chips de filtro ──────────────────────────────────────────────────────────
+
+class _FilterChips extends StatelessWidget {
+  final ReadingStatus? statusFilter;
+  final ItemType? typeFilter;
+  final ValueChanged<ReadingStatus?> onStatus;
+  final ValueChanged<ItemType?> onType;
+
+  const _FilterChips({
+    required this.statusFilter,
+    required this.typeFilter,
+    required this.onStatus,
+    required this.onType,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 38,
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        children: [
+          ChoiceChip(
+            label: const Text('Tudo'),
+            selected: statusFilter == null && typeFilter == null,
+            onSelected: (_) {
+              onStatus(null);
+              onType(null);
+            },
+          ),
+          const SizedBox(width: 8),
+          for (final status in ReadingStatus.values) ...[
+            ChoiceChip(
+              avatar: Icon(
+                StatusPill.iconOf(status),
+                size: 14,
+                color: StatusPill.colorOf(status),
+              ),
+              label: Text(status.label),
+              selected: statusFilter == status,
+              onSelected: (selected) {
+                onType(null);
+                onStatus(selected ? status : null);
+              },
+            ),
+            const SizedBox(width: 8),
+          ],
+          for (final type in ItemType.values) ...[
+            ChoiceChip(
+              label: Text(type.label),
+              selected: typeFilter == type,
+              onSelected: (selected) {
+                onStatus(null);
+                onType(selected ? type : null);
+              },
+            ),
+            const SizedBox(width: 8),
+          ],
         ],
       ),
     );
   }
 }
 
-class _ItemCard extends StatelessWidget {
+// ─── Linha da lista ───────────────────────────────────────────────────────────
+
+class _ItemRow extends StatelessWidget {
   final ItemModel item;
-  final VoidCallback onTap;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
 
-  const _ItemCard({
+  const _ItemRow({
     required this.item,
-    required this.onTap,
     required this.onEdit,
     required this.onDelete,
   });
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final progress = item.progress;
 
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
+    return Material(
+      color: scheme.surfaceContainerLow,
+      borderRadius: BorderRadius.circular(AppRadius.md),
       child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.all(12),
+        onTap: onEdit,
+        borderRadius: BorderRadius.circular(AppRadius.md),
+        child: Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(AppRadius.md),
+            border: Border.all(color: scheme.outlineVariant),
+          ),
+          padding: const EdgeInsets.all(11),
           child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Imagem
-              Container(
-                width: 60,
-                height: 80,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(8),
-                  color: colorScheme.surface,
-                ),
-                child: item.imageUrl != null
-                    ? ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
-                        child: AdaptiveNetworkImage(
-                          imageUrl: item.imageUrl!,
-                          fit: BoxFit.cover,
-                          fallback: Container(
-                            color: colorScheme.surface,
-                            child: Icon(
-                              item.type == ItemType.manga
-                                  ? Icons.book
-                                  : Icons.menu_book,
-                              color: colorScheme.secondary,
-                            ),
-                          ),
-                        ),
-                      )
-                    : Icon(
-                        item.type == ItemType.manga
-                            ? Icons.book
-                            : Icons.menu_book,
-                        color: colorScheme.secondary,
-                        size: 30,
-                      ),
+              CoverArt(
+                imageUrl: item.imageUrl,
+                title: item.name,
+                width: 56,
+                height: 84,
+                decodeWidth: 120,
+                fallbackIcon: item.type.isBook
+                    ? Icons.menu_book_rounded
+                    : Icons.import_contacts_rounded,
               ),
               const SizedBox(width: 12),
-
-              // Informações
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Título
                     Text(
                       item.name,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.titleMedium,
                     ),
-                    const SizedBox(height: 4),
-
-                    // Tipo
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 2,
-                      ),
-                      decoration: BoxDecoration(
-                        color: item.type == ItemType.manga
-                            ? const Color(0xFF4F6C73).withValues(alpha: 0.16)
-                            : const Color(0xFF697345).withValues(alpha: 0.16),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Text(
-                        item.displayType,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: item.type == ItemType.manga
-                              ? const Color(0xFF4F6C73)
-                              : const Color(0xFF697345),
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
+                    const SizedBox(height: 6),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 6,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        TypeBadge.forItem(item, compact: true),
+                        StatusPill(status: item.status, compact: true),
+                        if (item.rating > 0)
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(
+                                Icons.star_rounded,
+                                size: 13,
+                                color: AppColors.gold,
+                              ),
+                              const SizedBox(width: 2),
+                              Text(
+                                item.rating.toStringAsFixed(1),
+                                style: theme.textTheme.labelSmall,
+                              ),
+                            ],
+                          ),
+                      ],
                     ),
-                    const SizedBox(height: 4),
-
-                    // Autor (se disponível)
-                    if (item.author != null && item.author!.isNotEmpty)
+                    if ((item.author ?? '').isNotEmpty) ...[
+                      const SizedBox(height: 6),
                       Text(
                         item.author!,
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: colorScheme.secondary,
-                        ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.bodySmall,
                       ),
-
-                    // Posição atual
-                    if (item.displayCurrentPosition.isNotEmpty)
+                    ],
+                    if (item.displayCurrentPosition.isNotEmpty) ...[
+                      const SizedBox(height: 5),
                       Text(
                         item.displayCurrentPosition,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: colorScheme.secondary.withValues(alpha: 0.8),
-                        ),
+                        style: theme.textTheme.labelSmall,
                       ),
-
-                    // Avaliação
-                    if (item.rating > 0)
-                      Row(
-                        children: [
-                          const Icon(Icons.star, size: 16, color: Colors.amber),
-                          Text(
-                            ' ${item.rating.toStringAsFixed(1)}',
-                            style: const TextStyle(fontSize: 12),
-                          ),
-                        ],
+                    ],
+                    if (progress != null) ...[
+                      const SizedBox(height: 7),
+                      ReadingProgressBar(
+                        value: progress,
+                        color: StatusPill.colorOf(item.status),
+                        height: 4,
                       ),
+                    ],
                   ],
                 ),
               ),
-
-              // Status e ações
-              Column(
-                children: [
-                  // Status
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: _getStatusColor(
-                        item.status,
-                      ).withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: _getStatusColor(item.status)),
-                    ),
-                    child: Text(
-                      item.displayStatus,
-                      style: TextStyle(
-                        color: _getStatusColor(item.status),
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                      ),
+              PopupMenuButton<String>(
+                icon: const Icon(Icons.more_vert_rounded, size: 20),
+                onSelected: (value) {
+                  if (value == 'edit') onEdit();
+                  if (value == 'delete') onDelete();
+                },
+                itemBuilder: (_) => const [
+                  PopupMenuItem(
+                    value: 'edit',
+                    child: ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      dense: true,
+                      leading: Icon(Icons.edit_outlined, size: 18),
+                      title: Text('Editar'),
                     ),
                   ),
-                  const SizedBox(height: 8),
-
-                  // Menu de ações
-                  PopupMenuButton<String>(
-                    onSelected: (value) {
-                      if (value == 'edit') {
-                        onEdit();
-                      } else if (value == 'delete') {
-                        onDelete();
-                      }
-                    },
-                    itemBuilder: (context) => [
-                      const PopupMenuItem(
-                        value: 'edit',
-                        child: Row(
-                          children: [
-                            Icon(Icons.edit),
-                            SizedBox(width: 8),
-                            Text('Editar'),
-                          ],
-                        ),
-                      ),
-                      PopupMenuItem(
-                        value: 'delete',
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.delete,
-                              color: Theme.of(context).colorScheme.error,
-                            ),
-                            const SizedBox(width: 8),
-                            Text('Excluir'),
-                          ],
-                        ),
-                      ),
-                    ],
+                  PopupMenuItem(
+                    value: 'delete',
+                    child: ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      dense: true,
+                      leading: Icon(Icons.delete_outline_rounded, size: 18),
+                      title: Text('Remover'),
+                    ),
                   ),
                 ],
               ),
@@ -434,16 +523,5 @@ class _ItemCard extends StatelessWidget {
         ),
       ),
     );
-  }
-
-  Color _getStatusColor(ReadingStatus status) {
-    switch (status) {
-      case ReadingStatus.read:
-        return const Color(0xFF697345);
-      case ReadingStatus.reading:
-        return const Color(0xFFBF8F65);
-      case ReadingStatus.wantToRead:
-        return const Color(0xFF4F6C73);
-    }
   }
 }

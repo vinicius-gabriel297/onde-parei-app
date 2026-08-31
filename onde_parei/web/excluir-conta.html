@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Excluir conta — Onde Parei?</title>
+<meta name="description" content="Como excluir sua conta do Onde Parei? e o que acontece com os seus dados.">
+<link rel="icon" href="/favicon.png">
+<style>
+  :root {
+    --bg: #14100B;
+    --surface: #1F1810;
+    --border: #3A2E20;
+    --text: #F2E7D2;
+    --muted: #B0A08A;
+    --gold: #D3AC63;
+    --danger: #E08A7A;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 48px 20px 80px;
+    background: var(--bg);
+    color: var(--text);
+    font: 16px/1.65 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  }
+  main { max-width: 680px; margin: 0 auto; }
+  h1 { font-size: 28px; line-height: 1.25; margin: 0 0 6px; }
+  h2 { font-size: 18px; margin: 34px 0 10px; color: var(--gold); }
+  p, li { color: var(--text); }
+  .lead { color: var(--muted); margin: 0 0 8px; }
+  ol, ul { padding-left: 22px; }
+  li { margin: 6px 0; }
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 18px 20px;
+    margin: 18px 0;
+  }
+  table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+  th, td {
+    text-align: left;
+    padding: 10px 8px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+    font-size: 15px;
+  }
+  th { color: var(--gold); font-weight: 600; }
+  a { color: var(--gold); }
+  .btn {
+    display: inline-block;
+    margin-top: 10px;
+    padding: 12px 18px;
+    border-radius: 10px;
+    background: var(--gold);
+    color: #2A1D0A;
+    font-weight: 600;
+    text-decoration: none;
+  }
+  footer { margin-top: 46px; font-size: 13px; color: var(--muted); }
+</style>
+</head>
+<body>
+<main>
+  <p class="lead">Onde Parei?</p>
+  <h1>Excluir sua conta e seus dados</h1>
+  <p class="lead">
+    Você pode apagar sua conta pelo próprio app ou, se não tiver mais acesso a
+    ele, pedindo a exclusão por e-mail. Nos dois casos a remoção é definitiva.
+  </p>
+
+  <h2>1. Pelo app (imediato)</h2>
+  <div class="card">
+    <ol>
+      <li>Abra o Onde Parei? e entre na sua conta.</li>
+      <li>Toque na aba <strong>Ajustes</strong>.</li>
+      <li>Escolha <strong>Conta e dados</strong>.</li>
+      <li>Toque em <strong>Excluir minha conta</strong> e confirme com a sua senha.</li>
+    </ol>
+    <p style="margin-bottom:0">
+      A exclusão acontece na hora. Antes de confirmar, use
+      <strong>Exportar em JSON</strong> ou <strong>Exportar em CSV</strong> na
+      mesma tela se quiser guardar uma cópia da sua estante.
+    </p>
+  </div>
+
+  <h2>2. Sem o app (por e-mail)</h2>
+  <div class="card">
+    <p>
+      Se você desinstalou o app ou não consegue entrar, envie um pedido do
+      <strong>mesmo endereço de e-mail cadastrado na conta</strong> — é assim que
+      confirmamos que o pedido é seu.
+    </p>
+    <a class="btn" href="mailto:viniciuscarvalho.silva676@gmail.com?subject=Exclus%C3%A3o%20de%20conta%20-%20Onde%20Parei&amp;body=Quero%20excluir%20minha%20conta%20e%20todos%20os%20meus%20dados%20do%20Onde%20Parei%3F.%0A%0AE-mail%20da%20conta%3A%20">Pedir exclusão por e-mail</a>
+    <p style="margin-bottom:0">
+      Respondemos em até 7 dias e concluímos a exclusão em até 30 dias corridos,
+      conforme o art. 18 da LGPD.
+    </p>
+  </div>
+
+  <h2>O que é apagado</h2>
+  <table>
+    <tr>
+      <th>Dado</th>
+      <th>O que acontece</th>
+    </tr>
+    <tr>
+      <td>Conta de acesso (e-mail, senha, nome de exibição)</td>
+      <td>Apagada em definitivo do Firebase Authentication.</td>
+    </tr>
+    <tr>
+      <td>Sua estante (títulos, progresso, status, notas, gêneros, capas)</td>
+      <td>Todos os documentos são apagados do banco de dados.</td>
+    </tr>
+    <tr>
+      <td>Histórico de buscas</td>
+      <td>Fica só no seu aparelho e é apagado junto.</td>
+    </tr>
+    <tr>
+      <td>Preferência de tema</td>
+      <td>Fica só no seu aparelho; some ao desinstalar o app.</td>
+    </tr>
+  </table>
+
+  <h2>O que permanece</h2>
+  <table>
+    <tr>
+      <th>Dado</th>
+      <th>Por quê</th>
+    </tr>
+    <tr>
+      <td>Catálogo compartilhado de títulos</td>
+      <td>
+        Guarda apenas informações públicas das obras (nome, autor, capa, ano)
+        para deixar a busca rápida para todo mundo. Não contém sua estante nem
+        seu progresso. Pode restar o identificador interno de quem cadastrou o
+        título, que deixa de estar associado a qualquer conta existente.
+      </td>
+    </tr>
+    <tr>
+      <td>Registros técnicos do provedor (Google Firebase)</td>
+      <td>
+        Logs de segurança e de infraestrutura retidos por até 180 dias pelo
+        provedor de hospedagem, por obrigação de segurança. Depois disso são
+        descartados automaticamente.
+      </td>
+    </tr>
+  </table>
+
+  <p>Não há período de carência: a conta não fica &ldquo;desativada&rdquo; nem pode ser recuperada.</p>
+
+  <footer>
+    <p>
+      <a href="/politica-de-privacidade">Política de privacidade</a> ·
+      <a href="/">Abrir o app</a>
+    </p>
+    <p>Contato: viniciuscarvalho.silva676@gmail.com</p>
+  </footer>
+</main>
+</body>
+</html>
