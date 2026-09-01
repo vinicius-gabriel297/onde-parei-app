@@ -1,3 +1,16 @@
+import java.util.Properties
+
+// Credenciais de assinatura. O arquivo fica fora do controle de versão: sem ele
+// (num clone novo, por exemplo) o release cai para a chave de debug e o build
+// continua rodando — só não serve para publicar.
+val keystoreProperties = Properties().apply {
+    val file = rootProject.file("key.properties")
+    if (file.exists()) {
+        file.inputStream().use { load(it) }
+    }
+}
+val hasUploadKey = keystoreProperties.containsKey("storeFile")
+
 plugins {
     id("com.android.application")
     id("kotlin-android")
@@ -6,7 +19,7 @@ plugins {
 }
 
 android {
-    namespace = "com.example.onde_parei"
+    namespace = "com.viniciusgabriel.ondeparei"
     compileSdk = 36
     ndkVersion = "27.0.12077973"
 
@@ -19,11 +32,20 @@ android {
         jvmTarget = JavaVersion.VERSION_11.toString()
     }
 
+    signingConfigs {
+        create("upload") {
+            if (hasUploadKey) {
+                storeFile = rootProject.file(keystoreProperties["storeFile"] as String)
+                storePassword = keystoreProperties["storePassword"] as String
+                keyAlias = keystoreProperties["keyAlias"] as String
+                keyPassword = keystoreProperties["keyPassword"] as String
+            }
+        }
+    }
+
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId = "com.example.onde_parei"
-        // You can update the following values to match your application needs.
-        // For more information, see: https://flutter.dev/to/review-gradle-config.
+        // Identidade do app nas lojas. É imutável depois do primeiro envio.
+        applicationId = "com.viniciusgabriel.ondeparei"
         minSdk = 23
         targetSdk = 36
         versionCode = flutter.versionCode
@@ -40,9 +62,12 @@ android {
 
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = if (hasUploadKey) {
+                signingConfigs.getByName("upload")
+            } else {
+                // Chave de debug: a Play recusa um pacote assinado assim.
+                signingConfigs.getByName("debug")
+            }
         }
     }
 }

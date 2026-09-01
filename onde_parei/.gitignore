@@ -55,3 +55,9 @@ app.*.map.json
 
 # API Keys (nunca commite com chaves reais)
 lib/config/api_keys.dart
+
+# Assinatura de release: nunca versionar.
+# Perder a chave de upload significa perder a capacidade de atualizar o app.
+/android/key.properties
+*.jks
+*.keystore

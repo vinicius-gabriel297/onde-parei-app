@@ -1,4 +1,4 @@
-package com.example.onde_parei
+package com.viniciusgabriel.ondeparei
 
 import io.flutter.embedding.android.FlutterActivity
 
