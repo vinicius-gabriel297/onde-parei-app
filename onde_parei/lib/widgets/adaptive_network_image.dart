@@ -27,30 +27,11 @@ class AdaptiveNetworkImage extends StatefulWidget {
     this.decodeWidth,
   });
 
-  @override
-  State<AdaptiveNetworkImage> createState() => _AdaptiveNetworkImageState();
-}
-
-class _AdaptiveNetworkImageState extends State<AdaptiveNetworkImage> {
-  late List<String> _candidateUrls;
-  int _currentIndex = 0;
-
-  @override
-  void initState() {
-    super.initState();
-    _candidateUrls = _buildCandidates(widget.imageUrl);
-  }
-
-  @override
-  void didUpdateWidget(covariant AdaptiveNetworkImage oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.imageUrl != widget.imageUrl) {
-      _candidateUrls = _buildCandidates(widget.imageUrl);
-      _currentIndex = 0;
-    }
-  }
-
-  static List<String> _buildCandidates(String originalUrl) {
+  /// URLs a tentar, em ordem, para uma capa: a original normalizada e, no Web,
+  /// as variantes pelo proxy. Pública porque a captura do card de
+  /// compartilhamento precisa da mesma lista — o proxy é o que garante CORS, e
+  /// sem CORS a imagem não entra no PNG gerado.
+  static List<String> candidateUrls(String originalUrl) {
     final normalized = originalUrl
         .trim()
         .replaceFirst('http://', 'https://')
@@ -68,6 +49,29 @@ class _AdaptiveNetworkImageState extends State<AdaptiveNetworkImage> {
     }
 
     return candidates.toSet().toList();
+  }
+
+  @override
+  State<AdaptiveNetworkImage> createState() => _AdaptiveNetworkImageState();
+}
+
+class _AdaptiveNetworkImageState extends State<AdaptiveNetworkImage> {
+  late List<String> _candidateUrls;
+  int _currentIndex = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _candidateUrls = AdaptiveNetworkImage.candidateUrls(widget.imageUrl);
+  }
+
+  @override
+  void didUpdateWidget(covariant AdaptiveNetworkImage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.imageUrl != widget.imageUrl) {
+      _candidateUrls = AdaptiveNetworkImage.candidateUrls(widget.imageUrl);
+      _currentIndex = 0;
+    }
   }
 
   @override

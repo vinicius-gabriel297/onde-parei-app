@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:js_interop';
+import 'dart:typed_data';
 
 import 'package:web/web.dart' as web;
 
@@ -15,6 +16,32 @@ Future<bool> downloadTextFile(
   final bytes = utf8.encode(content).toJS;
   final blob = web.Blob(
     <JSUint8Array>[bytes].toJS,
+    web.BlobPropertyBag(type: mimeType),
+  );
+
+  final url = web.URL.createObjectURL(blob);
+  final anchor = web.document.createElement('a') as web.HTMLAnchorElement
+    ..href = url
+    ..download = fileName
+    ..style.display = 'none';
+
+  web.document.body?.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  web.URL.revokeObjectURL(url);
+
+  return true;
+}
+
+/// Mesmo caminho para conteúdo binário — o PNG do card de compartilhamento,
+/// quando o navegador não aceita compartilhar arquivo.
+Future<bool> downloadBytesFile(
+  String fileName,
+  Uint8List bytes,
+  String mimeType,
+) async {
+  final blob = web.Blob(
+    <JSUint8Array>[bytes.toJS].toJS,
     web.BlobPropertyBag(type: mimeType),
   );
 

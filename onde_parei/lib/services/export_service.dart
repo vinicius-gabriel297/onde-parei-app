@@ -5,9 +5,10 @@ import '../models/item_model.dart';
 /// Monta os arquivos de exportação da estante. Só transforma dados em texto —
 /// quem entrega o arquivo ao usuário é `file_download.dart`.
 abstract final class ExportService {
-  /// 2 acrescentou `source` e `externalId` em cada item. Quem lê uma exportação
-  /// da versão 1 só não encontra esses dois campos; o resto é igual.
-  static const jsonFormatVersion = 2;
+  /// 2 acrescentou `source` e `externalId` em cada item; 3 acrescentou
+  /// `review`. Quem lê uma exportação antiga só não encontra os campos que
+  /// ainda não existiam; o resto é igual.
+  static const jsonFormatVersion = 3;
 
   /// Retrato completo da conta em JSON. É o formato canônico: preserva tipos,
   /// datas em ISO 8601 e campos vazios, então serve para reimportar depois.
@@ -39,6 +40,7 @@ abstract final class ExportService {
             'currentPage': item.currentPage,
             'totalPages': item.totalPages,
             'rating': item.rating,
+            'review': item.review,
             'author': item.author,
             'publishedDate': item.publishedDate,
             'genres': item.genres ?? const <String>[],
@@ -69,6 +71,7 @@ abstract final class ExportService {
       'pagina_atual',
       'total_paginas',
       'nota',
+      'review',
       'autor',
       'ano',
       'generos',
@@ -91,6 +94,7 @@ abstract final class ExportService {
           item.currentPage,
           item.totalPages,
           item.rating == 0 ? '' : item.rating.toString(),
+          item.review,
           item.author ?? '',
           item.publishedDate ?? '',
           (item.genres ?? const <String>[]).join('; '),

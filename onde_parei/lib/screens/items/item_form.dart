@@ -7,6 +7,7 @@ import '../../models/api_models.dart';
 import '../../models/item_model.dart';
 import '../../services/auth_service.dart';
 import '../../services/firestore_service.dart';
+import 'share_review_screen.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/ui_kit.dart';
 
@@ -34,6 +35,7 @@ class _ItemFormScreenState extends State<ItemFormScreen> {
   late final TextEditingController _authorController;
   late final TextEditingController _currentController;
   late final TextEditingController _totalController;
+  late final TextEditingController _reviewController;
 
   late ItemType _type;
   late ReadingStatus _status;
@@ -61,6 +63,7 @@ class _ItemFormScreenState extends State<ItemFormScreen> {
     _authorController = TextEditingController(
       text: item?.author ?? result?.authors?.firstOrNull ?? '',
     );
+    _reviewController = TextEditingController(text: item?.review ?? '');
 
     _type = item?.type ?? ItemTypeX.fromSearchType(result?.type ?? 'book');
     _status = item?.status ?? ReadingStatus.wantToRead;
@@ -93,7 +96,30 @@ class _ItemFormScreenState extends State<ItemFormScreen> {
     _authorController.dispose();
     _currentController.dispose();
     _totalController.dispose();
+    _reviewController.dispose();
     super.dispose();
+  }
+
+  /// O review só faz sentido depois que a leitura encerra — por ter terminado
+  /// ou por ter sido largada.
+  bool get _reviewUnlocked =>
+      _status == ReadingStatus.read || _status == ReadingStatus.dropped;
+
+  bool get _canShare => _rating > 0 || _reviewController.text.trim().isNotEmpty;
+
+  /// Item como está **na tela**, não como está salvo: a prévia do card tem que
+  /// refletir o que o usuário acabou de escrever.
+  ItemModel get _previewItem {
+    final item = widget.item!;
+    return item.copyWith(
+      name: _nameController.text.trim(),
+      author: _authorController.text.trim(),
+      imageUrl: _imageUrl,
+      type: _type,
+      status: _status,
+      rating: _rating,
+      review: _reviewController.text.trim(),
+    );
   }
 
   double? get _progressPreview {
@@ -170,6 +196,7 @@ class _ItemFormScreenState extends State<ItemFormScreen> {
         totalChapters: countsChapters ? total : base.totalChapters,
         totalPages: countsChapters ? base.totalPages : total,
         rating: _rating,
+        review: _reviewController.text.trim(),
         updatedAt: DateTime.now(),
       );
 
@@ -457,6 +484,41 @@ class _ItemFormScreenState extends State<ItemFormScreen> {
                   ),
               ],
             ),
+
+            // Some da tela quando a leitura volta a andar, mas o texto **não**
+            // é apagado: quem retoma um livro e depois o termina de novo
+            // encontra o que já tinha escrito.
+            if (_reviewUnlocked) ...[
+              const SizedBox(height: 22),
+              Text('Meu review', style: theme.textTheme.titleSmall),
+              const SizedBox(height: 8),
+              TextFormField(
+                controller: _reviewController,
+                maxLines: 6,
+                maxLength: 600,
+                textCapitalization: TextCapitalization.sentences,
+                decoration: InputDecoration(
+                  hintText: _status == ReadingStatus.dropped
+                      ? 'Por que largou?'
+                      : 'O que achou?',
+                  alignLabelWithHint: true,
+                ),
+                onChanged: (_) => setState(() {}),
+              ),
+              if (widget.isEditing) ...[
+                const SizedBox(height: 4),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: OutlinedButton.icon(
+                    onPressed: _canShare
+                        ? () => openShareReview(context, _previewItem)
+                        : null,
+                    icon: const Icon(Icons.ios_share_rounded, size: 18),
+                    label: const Text('Compartilhar'),
+                  ),
+                ),
+              ],
+            ],
 
             if (_errorMessage != null) ...[
               const SizedBox(height: 18),

@@ -2,7 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:onde_parei/models/api_models.dart';
 import 'package:onde_parei/models/item_model.dart';
 
-ItemModel _item({String? externalId, String? source}) {
+ItemModel _item({String? externalId, String? source, String review = ''}) {
   final now = DateTime.utc(2026, 8, 31, 12);
   return ItemModel(
     id: 'abc123',
@@ -13,6 +13,7 @@ ItemModel _item({String? externalId, String? source}) {
     currentChapter: '364',
     currentPage: '',
     rating: 5,
+    review: review,
     externalId: externalId,
     source: source,
     createdAt: now,
@@ -93,6 +94,32 @@ void main() {
       expect(searchSourceFromName('fonte-que-nao-existe-mais'), isNull);
       expect(searchSourceFromName(null), isNull);
       expect(searchSourceFromName(''), isNull);
+    });
+  });
+
+  group('review', () {
+    test('vai e volta pelo mapa do Firestore', () {
+      final data = _item(review: 'Melhor mangá que já li.').toFirestore();
+
+      expect(data['review'], 'Melhor mangá que já li.');
+    });
+
+    test('item sem review grava string vazia, não nulo', () {
+      expect(_item().toFirestore()['review'], '');
+    });
+
+    test('copyWith consegue limpar o texto', () {
+      final limpo = _item(review: 'Larguei no capítulo 3.').copyWith(
+        review: '',
+      );
+
+      expect(limpo.review, isEmpty);
+      expect(limpo.hasReview, isFalse);
+    });
+
+    test('texto só de espaço não conta como review', () {
+      expect(_item(review: '   ').hasReview, isFalse);
+      expect(_item(review: 'Gostei').hasReview, isTrue);
     });
   });
 }
