@@ -128,6 +128,14 @@ class _ItemFormScreenState extends State<ItemFormScreen> {
       final total = _totalController.text.trim();
       final countsChapters = _type.countsChapters;
 
+      // Vínculo com a obra na origem, gravado só na criação: o par
+      // (source, externalId) é a identidade dela fora daqui. Fica nulo quando o
+      // usuário digitou o título à mão e quando o resultado veio de um
+      // documento antigo do catálogo, que ainda não registra a fonte — melhor
+      // sem vínculo do que apontando para o nosso próprio cache.
+      final origin = widget.searchResult?.effectiveSource;
+      final linked = origin != null && origin != SearchSource.catalog;
+
       final base =
           widget.item ??
           ItemModel(
@@ -139,6 +147,8 @@ class _ItemFormScreenState extends State<ItemFormScreen> {
             currentChapter: '',
             currentPage: '',
             rating: 0,
+            externalId: linked ? widget.searchResult!.id : null,
+            source: linked ? origin.name : null,
             createdAt: DateTime.now(),
             updatedAt: DateTime.now(),
           );
@@ -599,19 +609,32 @@ class _StatusSelector extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        for (final option in ReadingStatus.values) ...[
-          Expanded(
-            child: _StatusOption(
-              status: option,
-              selected: status == option,
-              onTap: () => onChanged(option),
-            ),
-          ),
-          if (option != ReadingStatus.values.last) const SizedBox(width: 8),
-        ],
-      ],
+    // Cinco opções não cabem lado a lado. Quebra em linhas de três, com largura
+    // fixa para os cartões da segunda linha ficarem do mesmo tamanho dos da
+    // primeira — um `Wrap` solto deixaria cada um do tamanho do próprio texto.
+    const spacing = 8.0;
+    const perRow = 3;
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = (constraints.maxWidth - spacing * (perRow - 1)) / perRow;
+
+        return Wrap(
+          spacing: spacing,
+          runSpacing: spacing,
+          children: [
+            for (final option in ReadingStatusX.displayOrder)
+              SizedBox(
+                width: width,
+                child: _StatusOption(
+                  status: option,
+                  selected: status == option,
+                  onTap: () => onChanged(option),
+                ),
+              ),
+          ],
+        );
+      },
     );
   }
 }

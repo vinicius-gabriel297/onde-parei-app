@@ -350,7 +350,7 @@ class _FilterChips extends StatelessWidget {
             },
           ),
           const SizedBox(width: 8),
-          for (final status in ReadingStatus.values) ...[
+          for (final status in ReadingStatusX.displayOrder) ...[
             ChoiceChip(
               avatar: Icon(
                 StatusPill.iconOf(status),

@@ -75,7 +75,9 @@ Cada API tem seu modelo em `models/api_models.dart` e um `SearchResult.fromX()`.
 
 Estatísticas da home saem de `statsFrom(items)` sobre a lista já carregada do stream — não faça uma segunda leitura da coleção só para contar.
 
-**Modelo (`models/item_model.dart`)** — `ItemType` e `ReadingStatus` são persistidos no Firestore **pelo índice do enum**: só acrescente valores no fim, nunca reordene. `countsChapters` define se a UI conta capítulos (mangá/manhwa/manhua) ou páginas (livro). Progresso é armazenado como `String` para permitir campo vazio.
+**Modelo (`models/item_model.dart`)** — `ItemType` e `ReadingStatus` são persistidos no Firestore **pelo índice do enum**: só acrescente valores no fim, nunca reordene (`test/reading_status_test.dart` trava os índices atuais). Por isso a ordem que a UI mostra vive em `ReadingStatusX.displayOrder`, e é ela que o seletor do formulário e os chips da estante percorrem — nunca `ReadingStatus.values`. `countsChapters` define se a UI conta capítulos (mangá/manhwa/manhua) ou páginas (livro). Progresso é armazenado como `String` para permitir campo vazio.
+
+O par `source` + `externalId` guarda de onde a obra veio (`jikan` + `mal-2`, por exemplo) e é preenchido **só na criação**, a partir do `SearchResult`; item digitado à mão fica com os dois nulos. Como o `book_catalog` é apenas um cache, um resultado que volta de lá chega com `source: catalog` — quem carrega a fonte verdadeira é `SearchResult.originSource`, e é `effectiveSource` que deve ser lido, nunca `source` direto.
 
 **Tema e UI** — `theme/app_theme.dart` define a paleta "Biblioteca Clássica" e é a **única** fonte de cores; não use `Color(0x...)` literal nas telas. `ThemeController` persiste a preferência em `SharedPreferences` (padrão: escuro). Componentes reutilizáveis (`TypeBadge`, `StatusPill`, `ReadingProgressBar`, `CoverArt`, `EmptyState`, snackbars) ficam em `widgets/ui_kit.dart` — prefira estendê-los a criar variantes locais.
 

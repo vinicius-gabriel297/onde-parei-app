@@ -18,6 +18,8 @@ abstract final class AppColors {
   static const statusReading = Color(0xFFD3AC63);
   static const statusRead = Color(0xFF6E9068);
   static const statusWant = Color(0xFF6E8F9E);
+  static const statusPaused = Color(0xFF9A8C74);
+  static const statusDropped = Color(0xFF9E6E6E);
 
   // Tipos de obra
   static const typeBook = Color(0xFF6E9068);

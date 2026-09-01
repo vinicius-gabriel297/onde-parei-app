@@ -120,6 +120,8 @@ class FirestoreService {
     var readCount = 0;
     var readingCount = 0;
     var wantToReadCount = 0;
+    var pausedCount = 0;
+    var droppedCount = 0;
     var totalRating = 0.0;
     var ratedCount = 0;
 
@@ -137,6 +139,10 @@ class FirestoreService {
           readingCount++;
         case ReadingStatus.wantToRead:
           wantToReadCount++;
+        case ReadingStatus.paused:
+          pausedCount++;
+        case ReadingStatus.dropped:
+          droppedCount++;
       }
 
       if (item.rating > 0) {
@@ -152,6 +158,8 @@ class FirestoreService {
       'readCount': readCount,
       'readingCount': readingCount,
       'wantToReadCount': wantToReadCount,
+      'pausedCount': pausedCount,
+      'droppedCount': droppedCount,
       'averageRating': ratedCount > 0 ? totalRating / ratedCount : 0.0,
       'ratedCount': ratedCount,
     };
@@ -191,6 +199,13 @@ class FirestoreService {
         'addedBy': userId,
         'addedAt': FieldValue.serverTimestamp(),
       };
+
+      // A fonte original só entra quando é conhecida. Um resultado que veio do
+      // próprio catálogo gravaria 'catalog' aqui e, no merge, apagaria a origem
+      // verdadeira já registrada no documento.
+      if (result.effectiveSource != SearchSource.catalog) {
+        data['source'] = result.effectiveSource.name;
+      }
 
       await _catalogCollection
           .doc(result.id)
@@ -234,6 +249,7 @@ class FirestoreService {
                   .toList(),
               type: d['type']?.toString() ?? 'book',
               source: SearchSource.catalog,
+              originSource: searchSourceFromName(d['source']?.toString()),
               year: d['year']?.toString(),
               totalUnits: (d['totalUnits'] as num?)?.toInt(),
               genres: (d['genres'] as List<dynamic>?)
