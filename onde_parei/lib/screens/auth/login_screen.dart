@@ -5,6 +5,7 @@ import '../../services/auth_service.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/ui_kit.dart';
 import 'auth_scaffold.dart';
+import 'google_sign_in_button.dart';
 import 'signup_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -146,6 +147,12 @@ class _LoginScreenState extends State<LoginScreen> {
                       )
                     : const Text('Entrar'),
               ),
+            ),
+
+            const SizedBox(height: 20),
+            GoogleSignInButton(
+              enabled: !_isLoading,
+              onError: (message) => setState(() => _errorMessage = message),
             ),
 
             const SizedBox(height: 18),

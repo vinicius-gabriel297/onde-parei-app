@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../services/auth_service.dart';
 import 'auth_scaffold.dart';
+import 'google_sign_in_button.dart';
 import 'login_screen.dart';
 
 class SignupScreen extends StatefulWidget {
@@ -153,6 +154,12 @@ class _SignupScreenState extends State<SignupScreen> {
                       )
                     : const Text('Criar conta'),
               ),
+            ),
+
+            const SizedBox(height: 20),
+            GoogleSignInButton(
+              enabled: !_isLoading,
+              onError: (message) => setState(() => _errorMessage = message),
             ),
 
             const SizedBox(height: 14),

@@ -110,22 +110,32 @@ class _AccountDataScreenState extends State<AccountDataScreen> {
     final history = context.read<SearchHistoryService>();
     final user = auth.currentUser;
     final email = user?.email;
+    final viaGoogle = auth.isGoogleUser;
 
-    if (user == null || email == null) {
+    if (user == null || (email == null && !viaGoogle)) {
       AppSnack.error(context, 'Faça login novamente para excluir a conta.');
       return;
     }
 
-    final confirmed = await _confirmDeletion();
+    final confirmed = await _confirmDeletion(viaGoogle: viaGoogle);
     if (confirmed != true || !mounted) return;
 
-    final password = await _askPassword();
-    if (password == null || password.isEmpty || !mounted) return;
+    // Quem entrou pelo Google não tem senha para digitar: a confirmação é
+    // refazer o login na janela do próprio Google.
+    String? password;
+    if (!viaGoogle) {
+      password = await _askPassword();
+      if (password == null || password.isEmpty || !mounted) return;
+    }
 
     setState(() => _deleting = true);
     try {
       // Confirma a identidade antes de tocar em qualquer dado.
-      await auth.reauthenticate(email, password);
+      if (viaGoogle) {
+        await auth.reauthenticateWithGoogle();
+      } else {
+        await auth.reauthenticate(email!, password!);
+      }
 
       // Ordem obrigatória: os itens primeiro. As regras do Firestore exigem
       // `request.auth.uid`, então depois de excluir a conta no Auth ninguém
@@ -143,15 +153,17 @@ class _AccountDataScreenState extends State<AccountDataScreen> {
     }
   }
 
-  Future<bool?> _confirmDeletion() => showDialog<bool>(
+  Future<bool?> _confirmDeletion({required bool viaGoogle}) => showDialog<bool>(
     context: context,
     builder: (dialogContext) => AlertDialog(
       title: const Text('Excluir conta'),
-      content: const Text(
+      content: Text(
         'Isso apaga em definitivo sua conta e todos os títulos da sua estante, '
         'incluindo progresso e notas. A ação não pode ser desfeita e os dados '
         'não podem ser recuperados depois.\n\n'
-        'Se quiser guardar uma cópia, cancele e exporte seus dados primeiro.',
+        'Se quiser guardar uma cópia, cancele e exporte seus dados primeiro.'
+        '${viaGoogle ? '\n\nO Google vai pedir sua conta de novo '
+                  'para confirmar que é você.' : ''}',
       ),
       actions: [
         TextButton(

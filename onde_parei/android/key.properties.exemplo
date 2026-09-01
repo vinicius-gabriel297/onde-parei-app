@@ -1,0 +1,6 @@
+# Modelo do arquivo de assinatura. Copie para android/key.properties e preencha.
+# O arquivo real e o .jks estão no .gitignore — nunca versione nenhum dos dois.
+storePassword=A_SENHA_QUE_VOCE_ESCOLHEU
+keyPassword=A_SENHA_DA_CHAVE
+keyAlias=upload
+storeFile=C:/Users/vinic/chaves/onde-parei-upload.jks
