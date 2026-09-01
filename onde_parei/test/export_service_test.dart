@@ -10,6 +10,7 @@ ItemModel _item({
   ReadingStatus status = ReadingStatus.reading,
   String currentChapter = '364',
   double rating = 5,
+  String review = '',
   String? author = 'Kentaro Miura',
   List<String>? genres = const ['Ação', 'Fantasia'],
   String? externalId,
@@ -25,6 +26,7 @@ ItemModel _item({
     currentChapter: currentChapter,
     currentPage: '',
     rating: rating,
+    review: review,
     author: author,
     genres: genres,
     externalId: externalId,
@@ -142,5 +144,39 @@ void main() {
   test('fileName usa a data corrente e a extensão pedida', () {
     final name = ExportService.fileName('json');
     expect(name, matches(RegExp(r'^onde-parei-\d{4}-\d{2}-\d{2}\.json$')));
+  });
+
+  group('review', () {
+    test('sai no JSON junto com a nota', () {
+      final decoded =
+          jsonDecode(
+                ExportService.buildJson(
+                  userId: 'user-1',
+                  items: [_item(review: 'Vale cada capítulo.')],
+                ),
+              )
+              as Map<String, dynamic>;
+
+      expect(decoded['formatVersion'], 3);
+      expect((decoded['items'] as List).first['review'], 'Vale cada capítulo.');
+    });
+
+    test('ganha coluna própria no CSV, logo depois da nota', () {
+      final lines = ExportService.buildCsv([
+        _item(review: 'Curti muito'),
+      ]).trim().split('\n');
+      final headers = lines.first.split(',');
+
+      expect(headers[8], 'review');
+      expect(lines.last.split(',')[8], 'Curti muito');
+    });
+
+    test('review com vírgula não quebra as colunas', () {
+      final lines = ExportService.buildCsv([
+        _item(review: 'Bom, mas arrasta'),
+      ]).trim().split('\n');
+
+      expect(lines.last, contains('"Bom, mas arrasta"'));
+    });
   });
 }

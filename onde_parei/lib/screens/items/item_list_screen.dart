@@ -9,6 +9,7 @@ import '../../widgets/ui_kit.dart';
 import '../home/home_screen.dart';
 import '../home/home_shell.dart';
 import 'edit_item_screen.dart';
+import 'share_review_screen.dart';
 
 enum ShelfSort { recent, title, rating, progress }
 
@@ -396,6 +397,9 @@ class _ItemRow extends StatelessWidget {
     required this.onDelete,
   });
 
+  /// Sem nota e sem review não há o que mostrar num card.
+  bool get _canShare => item.rating > 0 || item.hasReview;
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -462,6 +466,12 @@ class _ItemRow extends StatelessWidget {
                               ),
                             ],
                           ),
+                        if (item.hasReview)
+                          Icon(
+                            Icons.rate_review_outlined,
+                            size: 13,
+                            color: scheme.onSurfaceVariant,
+                          ),
                       ],
                     ),
                     if ((item.author ?? '').isNotEmpty) ...[
@@ -495,10 +505,11 @@ class _ItemRow extends StatelessWidget {
                 icon: const Icon(Icons.more_vert_rounded, size: 20),
                 onSelected: (value) {
                   if (value == 'edit') onEdit();
+                  if (value == 'share') openShareReview(context, item);
                   if (value == 'delete') onDelete();
                 },
-                itemBuilder: (_) => const [
-                  PopupMenuItem(
+                itemBuilder: (_) => [
+                  const PopupMenuItem(
                     value: 'edit',
                     child: ListTile(
                       contentPadding: EdgeInsets.zero,
@@ -508,6 +519,16 @@ class _ItemRow extends StatelessWidget {
                     ),
                   ),
                   PopupMenuItem(
+                    value: 'share',
+                    enabled: _canShare,
+                    child: const ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      dense: true,
+                      leading: Icon(Icons.ios_share_rounded, size: 18),
+                      title: Text('Compartilhar'),
+                    ),
+                  ),
+                  const PopupMenuItem(
                     value: 'delete',
                     child: ListTile(
                       contentPadding: EdgeInsets.zero,

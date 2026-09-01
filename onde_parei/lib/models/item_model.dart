@@ -91,6 +91,12 @@ class ItemModel {
   final String totalPages;
 
   final double rating;
+
+  /// Review final da obra, escrito quando a leitura encerra. Vazio = sem
+  /// review. Segue `currentChapter` e `totalPages`: String vazia em vez de
+  /// null, para o campo poder ser limpo sem sentinela no `copyWith`.
+  final String review;
+
   final String? description;
   final String? author;
   final String? publishedDate;
@@ -134,6 +140,7 @@ class ItemModel {
     this.totalChapters = '',
     this.totalPages = '',
     required this.rating,
+    this.review = '',
     this.description,
     this.author,
     this.publishedDate,
@@ -165,6 +172,7 @@ class ItemModel {
       totalChapters: data['totalChapters']?.toString() ?? '',
       totalPages: data['totalPages']?.toString() ?? '',
       rating: (data['rating'] as num?)?.toDouble() ?? 0,
+      review: data['review']?.toString() ?? '',
       description: data['description']?.toString(),
       author: data['author']?.toString(),
       publishedDate: data['publishedDate']?.toString(),
@@ -191,6 +199,7 @@ class ItemModel {
       'totalChapters': totalChapters,
       'totalPages': totalPages,
       'rating': rating,
+      'review': review,
       'description': description,
       'author': author,
       'publishedDate': publishedDate,
@@ -214,6 +223,7 @@ class ItemModel {
     String? totalChapters,
     String? totalPages,
     double? rating,
+    String? review,
     String? description,
     String? author,
     String? publishedDate,
@@ -235,6 +245,7 @@ class ItemModel {
       totalChapters: totalChapters ?? this.totalChapters,
       totalPages: totalPages ?? this.totalPages,
       rating: rating ?? this.rating,
+      review: review ?? this.review,
       description: description ?? this.description,
       author: author ?? this.author,
       publishedDate: publishedDate ?? this.publishedDate,
@@ -245,6 +256,9 @@ class ItemModel {
       updatedAt: updatedAt ?? this.updatedAt,
     );
   }
+
+  /// Se há review escrito. Um texto só de espaços não conta.
+  bool get hasReview => review.trim().isNotEmpty;
 
   /// Posição atual como número, quando informada.
   int? get currentValue =>
