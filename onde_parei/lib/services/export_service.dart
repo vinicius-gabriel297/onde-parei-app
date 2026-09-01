@@ -5,7 +5,9 @@ import '../models/item_model.dart';
 /// Monta os arquivos de exportação da estante. Só transforma dados em texto —
 /// quem entrega o arquivo ao usuário é `file_download.dart`.
 abstract final class ExportService {
-  static const jsonFormatVersion = 1;
+  /// 2 acrescentou `source` e `externalId` em cada item. Quem lê uma exportação
+  /// da versão 1 só não encontra esses dois campos; o resto é igual.
+  static const jsonFormatVersion = 2;
 
   /// Retrato completo da conta em JSON. É o formato canônico: preserva tipos,
   /// datas em ISO 8601 e campos vazios, então serve para reimportar depois.
@@ -42,6 +44,10 @@ abstract final class ExportService {
             'genres': item.genres ?? const <String>[],
             'description': item.description,
             'imageUrl': item.imageUrl,
+            // Nome cru da fonte, não o rótulo de tela: é o que permite casar
+            // o item de volta com a origem em uma reimportação.
+            'source': item.source,
+            'externalId': item.externalId,
             'createdAt': item.createdAt.toUtc().toIso8601String(),
             'updatedAt': item.updatedAt.toUtc().toIso8601String(),
           },
@@ -68,6 +74,8 @@ abstract final class ExportService {
       'generos',
       'criado_em',
       'atualizado_em',
+      'fonte',
+      'id_externo',
     ];
 
     final buffer = StringBuffer()..writeln(headers.join(','));
@@ -88,6 +96,8 @@ abstract final class ExportService {
           (item.genres ?? const <String>[]).join('; '),
           item.createdAt.toUtc().toIso8601String(),
           item.updatedAt.toUtc().toIso8601String(),
+          item.source ?? '',
+          item.externalId ?? '',
         ].map(_csvField).join(','),
       );
     }

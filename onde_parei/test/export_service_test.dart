@@ -12,6 +12,8 @@ ItemModel _item({
   double rating = 5,
   String? author = 'Kentaro Miura',
   List<String>? genres = const ['Ação', 'Fantasia'],
+  String? externalId,
+  String? source,
 }) {
   final now = DateTime.utc(2026, 8, 31, 12);
   return ItemModel(
@@ -25,6 +27,8 @@ ItemModel _item({
     rating: rating,
     author: author,
     genres: genres,
+    externalId: externalId,
+    source: source,
     createdAt: now,
     updatedAt: now,
   );
@@ -58,6 +62,25 @@ void main() {
       expect(first['genres'], ['Ação', 'Fantasia']);
     });
 
+    test('leva o vínculo com a origem, e nulo quando o item foi digitado', () {
+      final json = ExportService.buildJson(
+        userId: 'user-1',
+        items: [
+          _item(externalId: 'mal-2', source: 'jikan'),
+          _item(name: 'Anotado à mão'),
+        ],
+      );
+
+      final items = (jsonDecode(json) as Map<String, dynamic>)['items'] as List;
+      final vindoDaBusca = items.first as Map<String, dynamic>;
+      final digitado = items.last as Map<String, dynamic>;
+
+      expect(vindoDaBusca['source'], 'jikan');
+      expect(vindoDaBusca['externalId'], 'mal-2');
+      expect(digitado['source'], isNull);
+      expect(digitado['externalId'], isNull);
+    });
+
     test('estante vazia gera arquivo válido', () {
       final decoded =
           jsonDecode(ExportService.buildJson(userId: 'user-1', items: const []))
@@ -86,6 +109,26 @@ void main() {
       final fields = const LineSplitter().convert(csv)[1].split(',');
       expect(fields[7], isEmpty); // coluna "nota"
       expect(fields[10], isEmpty); // coluna "generos", nula no modelo
+    });
+
+    test('fonte e id externo fecham a linha, vazios quando não há vínculo', () {
+      final lines = const LineSplitter().convert(
+        ExportService.buildCsv([
+          _item(externalId: 'mal-2', source: 'jikan'),
+          _item(name: 'Anotado à mão'),
+        ]),
+      );
+
+      final headers = lines.first.split(',');
+      expect(headers.last, 'id_externo');
+      expect(headers[headers.length - 2], 'fonte');
+
+      final vindoDaBusca = lines[1].split(',');
+      expect(vindoDaBusca.last, 'mal-2');
+      expect(vindoDaBusca[vindoDaBusca.length - 2], 'jikan');
+
+      // Item digitado à mão: as duas últimas colunas ficam vazias.
+      expect(lines[2].endsWith(',,'), isTrue);
     });
 
     test('cabeçalho sozinho quando não há itens', () {

@@ -64,6 +64,10 @@ class StatusPill extends StatelessWidget {
         return AppColors.statusReading;
       case ReadingStatus.wantToRead:
         return AppColors.statusWant;
+      case ReadingStatus.paused:
+        return AppColors.statusPaused;
+      case ReadingStatus.dropped:
+        return AppColors.statusDropped;
     }
   }
 
@@ -75,6 +79,10 @@ class StatusPill extends StatelessWidget {
         return Icons.auto_stories_rounded;
       case ReadingStatus.wantToRead:
         return Icons.bookmark_add_rounded;
+      case ReadingStatus.paused:
+        return Icons.pause_circle_outline_rounded;
+      case ReadingStatus.dropped:
+        return Icons.bookmark_remove_rounded;
     }
   }
 

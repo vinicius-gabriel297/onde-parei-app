@@ -541,6 +541,17 @@ class KitsuManga {
 /// Origem do resultado — usada para dedupe e para o selo exibido na UI.
 enum SearchSource { catalog, googleBooks, openLibrary, jikan, mangaDex, kitsu }
 
+/// Converte de volta o nome persistido (`jikan`, `googleBooks`…). Devolve
+/// `null` para nome desconhecido — uma fonte removida do enum não pode
+/// derrubar a leitura de dados antigos.
+SearchSource? searchSourceFromName(String? name) {
+  if (name == null || name.isEmpty) return null;
+  for (final source in SearchSource.values) {
+    if (source.name == name) return source;
+  }
+  return null;
+}
+
 extension SearchSourceLabel on SearchSource {
   String get label {
     switch (this) {
@@ -571,6 +582,12 @@ class SearchResult {
   final String type;
   final Map<String, dynamic>? rawData;
   final SearchSource source;
+
+  /// Fonte de onde a obra veio originalmente, quando `source` é o catálogo.
+  /// O catálogo é só um cache compartilhado: sem isto, um resultado que voltou
+  /// de lá perderia o rastro da API que o produziu.
+  final SearchSource? originSource;
+
   final String? year;
   final double? score;
   final int? totalUnits;
@@ -589,6 +606,7 @@ class SearchResult {
     required this.type,
     this.rawData,
     this.source = SearchSource.catalog,
+    this.originSource,
     this.year,
     this.score,
     this.totalUnits,
@@ -598,6 +616,9 @@ class SearchResult {
   });
 
   bool get isBook => type == 'book';
+
+  /// Quem realmente produziu estes dados — o catálogo apenas os repassa.
+  SearchSource get effectiveSource => originSource ?? source;
 
   String get typeLabel {
     switch (type) {
