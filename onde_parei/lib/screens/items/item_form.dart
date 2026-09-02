@@ -5,8 +5,10 @@ import 'package:provider/provider.dart';
 
 import '../../models/api_models.dart';
 import '../../models/item_model.dart';
+import '../../services/api_service.dart';
 import '../../services/auth_service.dart';
 import '../../services/firestore_service.dart';
+import '../../services/recap_service.dart';
 import 'share_review_screen.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/ui_kit.dart';
@@ -41,12 +43,18 @@ class _ItemFormScreenState extends State<ItemFormScreen> {
   late ReadingStatus _status;
   late double _rating;
 
+  /// Datas de leitura em edição. Andam sozinhas junto do status (ver
+  /// [_applyStatus]) e podem ser ajustadas à mão nos dois campos de data.
+  DateTime? _startedAt;
+  DateTime? _finishedAt;
+
   String? _imageUrl;
   String? _description;
   String? _publishedDate;
   List<String> _genres = const [];
 
   bool _isSaving = false;
+  bool _lookingUpTotal = false;
   bool _descriptionExpanded = false;
   String? _errorMessage;
 
@@ -68,6 +76,8 @@ class _ItemFormScreenState extends State<ItemFormScreen> {
     _type = item?.type ?? ItemTypeX.fromSearchType(result?.type ?? 'book');
     _status = item?.status ?? ReadingStatus.wantToRead;
     _rating = item?.rating ?? 0;
+    _startedAt = item?.startedAt;
+    _finishedAt = item?.finishedAt;
 
     _imageUrl = item?.imageUrl ?? result?.imageUrl;
     _description = item?.description ?? result?.description;
@@ -119,8 +129,94 @@ class _ItemFormScreenState extends State<ItemFormScreen> {
       status: _status,
       rating: _rating,
       review: _reviewController.text.trim(),
+      startedAt: _startedAt,
+      finishedAt: _finishedAt,
+      clearStartedAt: _startedAt == null,
+      clearFinishedAt: _finishedAt == null,
     );
   }
+
+  /// Troca o status e deixa as datas coerentes com ele — quem marca "Lendo"
+  /// não deveria ter que preencher a data de início na mão.
+  void _applyStatus(ReadingStatus status) {
+    final dates = ItemModel.datesFor(
+      status: status,
+      startedAt: _startedAt,
+      finishedAt: _finishedAt,
+      now: DateTime.now(),
+    );
+    setState(() {
+      _status = status;
+      _startedAt = dates.startedAt;
+      _finishedAt = dates.finishedAt;
+    });
+  }
+
+  /// Vai atrás do total de páginas (ou capítulos) nas fontes de busca, para o
+  /// título que foi salvo sem esse número — sem ele não há barra de progresso
+  /// nem contagem de páginas na retrospectiva.
+  Future<void> _lookupTotal() async {
+    setState(() => _lookingUpTotal = true);
+    try {
+      final total = await ApiService.lookupTotalUnits(
+        title: _nameController.text.trim(),
+        author: _authorController.text.trim(),
+        isBook: !_type.countsChapters,
+      );
+      if (!mounted) return;
+      if (total == null) {
+        AppSnack.show(
+          context,
+          'Não encontrei esse número nas fontes. Dá para digitar à mão.',
+          icon: Icons.search_off_rounded,
+        );
+        return;
+      }
+      setState(() => _totalController.text = '$total');
+      AppSnack.show(
+        context,
+        _type.countsChapters
+            ? '$total capítulos encontrados. Confira antes de salvar.'
+            : '$total páginas encontradas. Confira antes de salvar.',
+        icon: Icons.auto_stories_rounded,
+      );
+    } catch (e) {
+      if (mounted) AppSnack.error(context, '$e');
+    } finally {
+      if (mounted) setState(() => _lookingUpTotal = false);
+    }
+  }
+
+  /// Abre o calendário para uma das duas datas. O intervalo começa em 1970 e
+  /// termina hoje: leitura no futuro não existe.
+  Future<void> _pickDate({required bool isStart}) async {
+    final now = DateTime.now();
+    final initial = (isStart ? _startedAt : _finishedAt) ?? now;
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: initial.isAfter(now) ? now : initial,
+      firstDate: DateTime(1970),
+      lastDate: now,
+      helpText: isStart ? 'Quando você começou' : 'Quando você terminou',
+    );
+    if (picked == null || !mounted) return;
+    setState(() {
+      if (isStart) {
+        _startedAt = picked;
+      } else {
+        _finishedAt = picked;
+      }
+    });
+  }
+
+  /// A data de início vale para qualquer leitura que já saiu do "quero ler"; a
+  /// de fim, só quando a leitura encerrou.
+  bool get _showStartDate => _status != ReadingStatus.wantToRead;
+  bool get _showFinishDate =>
+      _status == ReadingStatus.read || _status == ReadingStatus.dropped;
+
+  /// Duração que os campos de data mostram agora — ainda não salva.
+  int? get _previewDays => ItemModel.daysBetween(_startedAt, _finishedAt);
 
   double? get _progressPreview {
     if (_status == ReadingStatus.read) return 1;
@@ -179,6 +275,16 @@ class _ItemFormScreenState extends State<ItemFormScreen> {
             updatedAt: DateTime.now(),
           );
 
+      // Última passada pelas mesmas regras do status: garante coerência também
+      // no item criado já como "Lendo" ou "Lido", que nunca passou pelo
+      // seletor.
+      final dates = ItemModel.datesFor(
+        status: _status,
+        startedAt: _startedAt,
+        finishedAt: _finishedAt,
+        now: DateTime.now(),
+      );
+
       final item = base.copyWith(
         userId: user.uid,
         name: _nameController.text.trim(),
@@ -197,6 +303,10 @@ class _ItemFormScreenState extends State<ItemFormScreen> {
         totalPages: countsChapters ? base.totalPages : total,
         rating: _rating,
         review: _reviewController.text.trim(),
+        startedAt: dates.startedAt,
+        finishedAt: dates.finishedAt,
+        clearStartedAt: dates.startedAt == null,
+        clearFinishedAt: dates.finishedAt == null,
         updatedAt: DateTime.now(),
       );
 
@@ -361,10 +471,43 @@ class _ItemFormScreenState extends State<ItemFormScreen> {
             const SizedBox(height: 24),
             Text('Status', style: theme.textTheme.titleSmall),
             const SizedBox(height: 8),
-            _StatusSelector(
-              status: _status,
-              onChanged: (value) => setState(() => _status = value),
-            ),
+            _StatusSelector(status: _status, onChanged: _applyStatus),
+
+            if (_showStartDate) ...[
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Expanded(
+                    child: _DateField(
+                      label: 'Comecei em',
+                      date: _startedAt,
+                      onTap: () => _pickDate(isStart: true),
+                    ),
+                  ),
+                  if (_showFinishDate) ...[
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _DateField(
+                        label: _status == ReadingStatus.dropped
+                            ? 'Larguei em'
+                            : 'Terminei em',
+                        date: _finishedAt,
+                        onTap: () => _pickDate(isStart: false),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+              if (_showFinishDate && _previewDays != null) ...[
+                const SizedBox(height: 8),
+                Text(
+                  _previewDays == 1
+                      ? 'Um dia do começo ao fim.'
+                      : 'Foram $_previewDays dias do começo ao fim.',
+                  style: theme.textTheme.bodySmall,
+                ),
+              ],
+            ],
 
             const SizedBox(height: 20),
             Text('Detalhes', style: theme.textTheme.titleSmall),
@@ -437,6 +580,31 @@ class _ItemFormScreenState extends State<ItemFormScreen> {
                 ),
               ],
             ),
+            // Só aparece quando falta o total: com o número preenchido, o
+            // botão vira ruído.
+            if (_totalController.text.trim().isEmpty &&
+                _nameController.text.trim().isNotEmpty) ...[
+              const SizedBox(height: 6),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton.icon(
+                  onPressed: _lookingUpTotal ? null : _lookupTotal,
+                  icon: _lookingUpTotal
+                      ? const SizedBox(
+                          width: 14,
+                          height: 14,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.travel_explore_rounded, size: 18),
+                  label: Text(
+                    _type.countsChapters
+                        ? 'Buscar total de capítulos'
+                        : 'Buscar total de páginas',
+                  ),
+                ),
+              ),
+            ],
+
             if (_progressPreview != null) ...[
               const SizedBox(height: 12),
               Row(
@@ -750,6 +918,40 @@ class _StatusOption extends StatelessWidget {
                 ),
               ),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Campo de data em formato de botão — abre o calendário e mostra o que já foi
+/// escolhido. Vazio significa "não sei quando", e o app não inventa a data.
+class _DateField extends StatelessWidget {
+  final String label;
+  final DateTime? date;
+  final VoidCallback onTap;
+
+  const _DateField({required this.label, required this.date, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(AppRadius.sm),
+      child: InputDecorator(
+        decoration: InputDecoration(
+          labelText: label,
+          isDense: true,
+          suffixIcon: const Icon(Icons.event_rounded, size: 18),
+        ),
+        child: Text(
+          date == null ? 'Escolher data' : formatShortDate(date!),
+          style: theme.textTheme.bodyMedium?.copyWith(
+            color: date == null ? scheme.onSurfaceVariant : scheme.onSurface,
           ),
         ),
       ),

@@ -45,7 +45,9 @@ app.*.map.json
 /android/app/release
 
 # Firebase Configuration (contains API keys)
+# Ambos saem do `flutterfire configure`; refaça o comando num clone novo.
 /lib/firebase_options.dart
+/android/app/google-services.json
 
 # Environment variables
 .env

@@ -5,9 +5,11 @@ import '../../models/item_model.dart';
 import '../../services/api_service.dart';
 import '../../services/auth_service.dart';
 import '../../services/firestore_service.dart';
+import '../../services/recap_service.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/theme_controller.dart';
 import '../../widgets/ui_kit.dart';
+import '../recap/recap_screen.dart';
 import 'account_data_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -143,7 +145,14 @@ class _SettingsScreenState extends State<SettingsScreen>
               builder: (context, snapshot) {
                 final items = snapshot.data ?? const <ItemModel>[];
                 final stats = FirestoreService.statsFrom(items);
-                return _SummaryCard(stats: stats);
+                final recap = ReadingRecap.forYear(items, DateTime.now().year);
+                return Column(
+                  children: [
+                    _SummaryCard(stats: stats),
+                    const SizedBox(height: 12),
+                    _RecapTile(recap: recap),
+                  ],
+                );
               },
             ),
 
@@ -252,6 +261,77 @@ class _SettingsScreenState extends State<SettingsScreen>
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Retrospectiva ────────────────────────────────────────────────────────────
+
+/// A porta de entrada da retrospectiva no perfil. Já mostra o número do ano e
+/// do mês corrente — quem só quer saber quanto leu não precisa abrir a tela.
+class _RecapTile extends StatelessWidget {
+  final ReadingRecap recap;
+
+  const _RecapTile({required this.recap});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final now = DateTime.now();
+    final thisMonth = recap.countIn(now.month);
+
+    final String resumo;
+    if (recap.total == 0) {
+      resumo = 'Marque uma obra como lida para começar o ano';
+    } else if (thisMonth == 0) {
+      resumo =
+          '${recap.total} ${recap.total == 1 ? 'obra terminada' : 'obras terminadas'} '
+          'em ${recap.year} · nenhuma em ${monthName(now.month)}';
+    } else {
+      resumo =
+          '${recap.total} ${recap.total == 1 ? 'obra terminada' : 'obras terminadas'} '
+          'em ${recap.year} · $thisMonth em ${monthName(now.month)}';
+    }
+
+    return Material(
+      color: scheme.primary.withValues(alpha: 0.10),
+      borderRadius: BorderRadius.circular(AppRadius.md),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(AppRadius.md),
+        onTap: () => Navigator.of(context).push(
+          MaterialPageRoute<void>(builder: (_) => const RecapScreen()),
+        ),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 14),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(AppRadius.md),
+            border: Border.all(color: scheme.primary.withValues(alpha: 0.45)),
+          ),
+          child: Row(
+            children: [
+              Icon(Icons.auto_awesome_rounded, color: scheme.primary),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Retrospectiva ${recap.year}',
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        color: scheme.primary,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(resumo, style: theme.textTheme.bodySmall),
+                  ],
+                ),
+              ),
+              const Icon(Icons.chevron_right_rounded),
+            ],
+          ),
         ),
       ),
     );

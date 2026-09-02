@@ -356,3 +356,42 @@ abstract final class AppSnack {
     accent: Theme.of(context).colorScheme.error,
   );
 }
+
+/// Assinatura do app no pé dos cards que viram imagem. Vive aqui porque tanto
+/// o card de review quanto o da retrospectiva terminam com ela — e as duas
+/// imagens precisam sair idênticas nesse detalhe.
+class ShareCardFooter extends StatelessWidget {
+  const ShareCardFooter({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+
+    return Row(
+      children: [
+        Icon(Icons.auto_stories_rounded, size: 19, color: scheme.primary),
+        const SizedBox(width: 8),
+        Text(
+          'Onde Parei?',
+          style: theme.textTheme.titleSmall?.copyWith(
+            fontSize: 15,
+            color: scheme.primary,
+          ),
+        ),
+        const Spacer(),
+        Flexible(
+          child: Text(
+            'onde-parei-ea32c.web.app',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.labelSmall?.copyWith(
+              fontSize: 12,
+              color: scheme.onSurfaceVariant,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}

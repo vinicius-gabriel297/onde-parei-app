@@ -6,9 +6,9 @@ import '../models/item_model.dart';
 /// quem entrega o arquivo ao usuário é `file_download.dart`.
 abstract final class ExportService {
   /// 2 acrescentou `source` e `externalId` em cada item; 3 acrescentou
-  /// `review`. Quem lê uma exportação antiga só não encontra os campos que
-  /// ainda não existiam; o resto é igual.
-  static const jsonFormatVersion = 3;
+  /// `review`; 4 acrescentou `startedAt` e `finishedAt`. Quem lê uma exportação
+  /// antiga só não encontra os campos que ainda não existiam; o resto é igual.
+  static const jsonFormatVersion = 4;
 
   /// Retrato completo da conta em JSON. É o formato canônico: preserva tipos,
   /// datas em ISO 8601 e campos vazios, então serve para reimportar depois.
@@ -50,6 +50,9 @@ abstract final class ExportService {
             // o item de volta com a origem em uma reimportação.
             'source': item.source,
             'externalId': item.externalId,
+            // Nulas em item lido antes de o app passar a registrar as datas.
+            'startedAt': item.startedAt?.toUtc().toIso8601String(),
+            'finishedAt': item.finishedAt?.toUtc().toIso8601String(),
             'createdAt': item.createdAt.toUtc().toIso8601String(),
             'updatedAt': item.updatedAt.toUtc().toIso8601String(),
           },
@@ -75,6 +78,8 @@ abstract final class ExportService {
       'autor',
       'ano',
       'generos',
+      'comecei_em',
+      'terminei_em',
       'criado_em',
       'atualizado_em',
       'fonte',
@@ -98,6 +103,8 @@ abstract final class ExportService {
           item.author ?? '',
           item.publishedDate ?? '',
           (item.genres ?? const <String>[]).join('; '),
+          item.startedAt?.toUtc().toIso8601String() ?? '',
+          item.finishedAt?.toUtc().toIso8601String() ?? '',
           item.createdAt.toUtc().toIso8601String(),
           item.updatedAt.toUtc().toIso8601String(),
           item.source ?? '',

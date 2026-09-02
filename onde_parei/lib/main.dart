@@ -1,3 +1,4 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -63,10 +64,16 @@ class AuthWrapper extends StatelessWidget {
   Widget build(BuildContext context) {
     final authService = Provider.of<AuthService>(context);
 
-    return StreamBuilder(
+    // Quando o Android mata o app em segundo plano e a pessoa volta depois de
+    // muito tempo, o processo sobe do zero e o stream ainda não emitiu nada.
+    // Partir do `currentUser` — que o Firebase já restaurou do disco antes do
+    // primeiro frame — evita mandar quem está logado para a tela de login.
+    return StreamBuilder<User?>(
       stream: authService.authStateChanges,
+      initialData: authService.currentUser,
       builder: (context, snapshot) {
-        if (snapshot.connectionState != ConnectionState.active) {
+        if (!snapshot.hasData &&
+            snapshot.connectionState == ConnectionState.waiting) {
           return const _SplashScreen();
         }
         return snapshot.data == null ? const LoginScreen() : const HomeShell();

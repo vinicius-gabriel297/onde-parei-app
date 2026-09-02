@@ -113,8 +113,46 @@ class ItemModel {
   final String? externalId;
   final String? source;
 
+  /// Quando a leitura começou e quando encerrou. São preenchidas sozinhas na
+  /// mudança de status (ver [datesFor]) e podem ser ajustadas à mão no
+  /// formulário — item salvo antes desta versão fica com as duas nulas, e é
+  /// por isso que todo lugar que lê essas datas precisa aguentar o `null`.
+  ///
+  /// Não confunda com [createdAt]/[updatedAt], que contam a vida do documento,
+  /// não a da leitura: um livro guardado hoje pode ter sido lido ano passado.
+  final DateTime? startedAt;
+  final DateTime? finishedAt;
+
   final DateTime createdAt;
   final DateTime updatedAt;
+
+  /// Datas de leitura coerentes com um status.
+  ///
+  /// Depende só do status de destino, nunca do anterior — assim vale tanto na
+  /// criação quanto na edição, e aplicar duas vezes dá o mesmo resultado. Data
+  /// já preenchida (inclusive à mão) é preservada; `now` só entra no vazio.
+  static ({DateTime? startedAt, DateTime? finishedAt}) datesFor({
+    required ReadingStatus status,
+    DateTime? startedAt,
+    DateTime? finishedAt,
+    required DateTime now,
+  }) {
+    switch (status) {
+      // "Quero ler" é o antes de tudo: se voltou para cá, a leitura não
+      // aconteceu.
+      case ReadingStatus.wantToRead:
+        return (startedAt: null, finishedAt: null);
+      // Voltou a andar — começou, e ainda não terminou.
+      case ReadingStatus.reading:
+      case ReadingStatus.paused:
+        return (startedAt: startedAt ?? now, finishedAt: null);
+      // Encerrou, por ter terminado ou por ter largado. O início pode
+      // continuar desconhecido: nem toda obra passou por "Lendo" aqui dentro.
+      case ReadingStatus.read:
+      case ReadingStatus.dropped:
+        return (startedAt: startedAt, finishedAt: finishedAt ?? now);
+    }
+  }
 
   /// Texto vindo do Firestore que pode estar ausente, nulo ou vazio — os três
   /// significam "não sei de onde veio".
@@ -147,6 +185,8 @@ class ItemModel {
     this.genres,
     this.externalId,
     this.source,
+    this.startedAt,
+    this.finishedAt,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -181,6 +221,8 @@ class ItemModel {
           .toList(),
       externalId: _nonEmpty(data['externalId']),
       source: _nonEmpty(data['source']),
+      startedAt: (data['startedAt'] as Timestamp?)?.toDate(),
+      finishedAt: (data['finishedAt'] as Timestamp?)?.toDate(),
       createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       updatedAt: (data['updatedAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
     );
@@ -206,6 +248,8 @@ class ItemModel {
       'genres': genres,
       'externalId': externalId,
       'source': source,
+      'startedAt': startedAt == null ? null : Timestamp.fromDate(startedAt!),
+      'finishedAt': finishedAt == null ? null : Timestamp.fromDate(finishedAt!),
       'createdAt': Timestamp.fromDate(createdAt),
       'updatedAt': Timestamp.fromDate(updatedAt),
     };
@@ -230,8 +274,14 @@ class ItemModel {
     List<String>? genres,
     String? externalId,
     String? source,
+    DateTime? startedAt,
+    DateTime? finishedAt,
     DateTime? createdAt,
     DateTime? updatedAt,
+    /// As datas de leitura são as únicas que voltam a ser nulas — `null` no
+    /// parâmetro significa "não mexe", então limpar precisa destes sinalizadores.
+    bool clearStartedAt = false,
+    bool clearFinishedAt = false,
   }) {
     return ItemModel(
       id: id ?? this.id,
@@ -252,10 +302,25 @@ class ItemModel {
       genres: genres ?? this.genres,
       externalId: externalId ?? this.externalId,
       source: source ?? this.source,
+      startedAt: clearStartedAt ? null : (startedAt ?? this.startedAt),
+      finishedAt: clearFinishedAt ? null : (finishedAt ?? this.finishedAt),
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
   }
+
+  /// Quantos dias separam duas datas, contando as duas pontas — mesmo dia dá 1.
+  /// Estático porque o formulário precisa do número antes de existir item.
+  static int? daysBetween(DateTime? start, DateTime? end) {
+    if (start == null || end == null) return null;
+    final days = DateTime(end.year, end.month, end.day)
+        .difference(DateTime(start.year, start.month, start.day))
+        .inDays;
+    return days < 0 ? null : days + 1;
+  }
+
+  /// Quantos dias a leitura levou, quando dá para saber.
+  int? get readingDays => daysBetween(startedAt, finishedAt);
 
   /// Se há review escrito. Um texto só de espaços não conta.
   bool get hasReview => review.trim().isNotEmpty;

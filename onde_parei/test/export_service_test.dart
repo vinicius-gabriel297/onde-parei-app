@@ -157,7 +157,7 @@ void main() {
               )
               as Map<String, dynamic>;
 
-      expect(decoded['formatVersion'], 3);
+      expect(decoded['formatVersion'], 4);
       expect((decoded['items'] as List).first['review'], 'Vale cada capítulo.');
     });
 
@@ -177,6 +177,41 @@ void main() {
       ]).trim().split('\n');
 
       expect(lines.last, contains('"Bom, mas arrasta"'));
+    });
+  });
+
+  group('datas de leitura', () {
+    test('vão para o JSON em ISO, e nulas quando não existem', () {
+      final decoded =
+          jsonDecode(
+                ExportService.buildJson(
+                  userId: 'user-1',
+                  items: [
+                    _item().copyWith(
+                      startedAt: DateTime.utc(2026, 3, 1),
+                      finishedAt: DateTime.utc(2026, 3, 20),
+                    ),
+                    _item(),
+                  ],
+                ),
+              )
+              as Map<String, dynamic>;
+      final items = decoded['items'] as List;
+
+      expect(items.first['startedAt'], '2026-03-01T00:00:00.000Z');
+      expect(items.first['finishedAt'], '2026-03-20T00:00:00.000Z');
+      expect(items.last['startedAt'], isNull);
+      expect(items.last['finishedAt'], isNull);
+    });
+
+    test('ganham colunas no CSV, vazias quando não há data', () {
+      final lines = ExportService.buildCsv([_item()]).trim().split('\n');
+      final headers = lines.first.split(',');
+
+      expect(headers[12], 'comecei_em');
+      expect(headers[13], 'terminei_em');
+      expect(lines.last.split(',')[12], '');
+      expect(lines.last.split(',')[13], '');
     });
   });
 }

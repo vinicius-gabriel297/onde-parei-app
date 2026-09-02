@@ -316,19 +316,33 @@ class ApiService {
         .toList();
   }
 
+  /// [title] e [author] fazem a busca por campo, que casa a obra com muito
+  /// mais precisão que o `q` livre — use-os quando os dois forem conhecidos.
   static Future<List<GoogleBook>> searchBooksOnOpenLibrary(
     String query, {
     int maxResults = 12,
+    String? title,
+    String? author,
   }) async {
     const fields =
         'fields=key,title,author_name,cover_i,first_publish_year,edition_count,'
         'ratings_average,ratings_count,want_to_read_count,already_read_count,'
         'number_of_pages_median,language,isbn';
 
+    final porCampo = [
+      if (title != null && title.trim().isNotEmpty)
+        'title=${Uri.encodeQueryComponent(title.trim())}',
+      if (author != null && author.trim().isNotEmpty)
+        'author=${Uri.encodeQueryComponent(author.trim())}',
+    ];
+
+    final busca = porCampo.isEmpty
+        ? 'q=${Uri.encodeQueryComponent(query)}'
+        : porCampo.join('&');
+
     final uri = Uri.parse(
       '$openLibraryBaseUrl/search.json'
-      '?q=${Uri.encodeQueryComponent(query)}'
-      '&limit=$maxResults&$fields',
+      '?$busca&limit=$maxResults&$fields',
     );
 
     final data = await _getJson(uri, host: 'openlibrary');
@@ -691,6 +705,173 @@ class ApiService {
     } catch (_) {
       return null;
     }
+  }
+
+  /// Procura nas fontes quantas páginas (livro) ou capítulos (quadrinho) a
+  /// obra tem, para quem salvou o título sem esse número.
+  ///
+  /// A busca já traz o total quando a fonte o informa — este caminho existe
+  /// para o resto: obra vinda de uma fonte que não publica o dado, item
+  /// digitado à mão, ou documento antigo do catálogo. Vai a fundo só quando o
+  /// usuário pede, na tela de edição, e nunca escreve sozinha: quem decide se
+  /// o número está certo é quem tem o livro na mão.
+  ///
+  /// Retorna `null` em vez de lançar — não achar é resultado normal aqui.
+  static Future<int?> lookupTotalUnits({
+    required String title,
+    String? author,
+    required bool isBook,
+  }) async {
+    final query = title.trim();
+    if (query.isEmpty) return null;
+    final autor = (author ?? '').trim();
+
+    if (isBook) {
+      // O Open Library vem primeiro de propósito: o catálogo dele é de
+      // edições físicas, e `number_of_pages_median` é a mediana de páginas
+      // entre elas. O Google Books mistura ebook e edição impressa na mesma
+      // busca, e a paginação de ebook costuma ser maior que a do livro que
+      // está na mão do leitor.
+      try {
+        final books = await searchBooksOnOpenLibrary(
+          query,
+          title: query,
+          author: autor,
+          maxResults: 8,
+        );
+        final total = pageCountFromEditions(query, books);
+        if (total != null) return total;
+      } catch (_) {
+        // Cai para o Google Books.
+      }
+
+      // A busca por campo (`intitle`/`inauthor`) evita casar com um livro
+      // qualquer que só cite o título na descrição.
+      final refinada = [
+        'intitle:${_quoted(query)}',
+        if (autor.isNotEmpty) 'inauthor:${_quoted(autor)}',
+      ].join(' ');
+
+      for (final consulta in <String>[refinada, query]) {
+        try {
+          final books = await searchBooksOnGoogle(consulta, maxResults: 10);
+          final total = pageCountFromEditions(query, books);
+          if (total != null) return total;
+        } catch (_) {
+          // Tenta a próxima consulta.
+        }
+      }
+
+      return null;
+    }
+
+    // Quadrinhos: a Kitsu responde no Web (a MangaDex é bloqueada por CORS) e
+    // a Jikan cobre o que ela não tem.
+    try {
+      final kitsu = await searchKitsu(query, limit: 5);
+      final total = _firstPositive(kitsu.map((m) => m.chapterCount));
+      if (total != null) return total;
+    } catch (_) {
+      // Segue para a Jikan.
+    }
+
+    try {
+      final jikan = await searchMangas(query, limit: 5);
+      return _firstPositive(jikan.map((m) => m.chapters));
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Escolhe quantas páginas a obra tem entre as edições que a fonte devolveu.
+  ///
+  /// Pegar a primeira era o erro: a primeira costuma ser o ebook, e box e
+  /// "resumo do livro X" entram na mesma busca. Aqui só ficam as edições cujo
+  /// título realmente casa com [title], e o resultado é a **mediana** delas —
+  /// um box de 1.400 páginas no meio de edições de 400 não move a mediana,
+  /// enquanto moveria qualquer média.
+  ///
+  /// Pública porque é pura: `test/page_lookup_test.dart` cobre estes casos.
+  static int? pageCountFromEditions(
+    String title,
+    Iterable<GoogleBook> editions,
+  ) {
+    final alvo = _normalizeTitle(title);
+    if (alvo.isEmpty) return null;
+
+    final paginas =
+        editions
+            .where((book) {
+              final candidato = _normalizeTitle(book.title);
+              if (candidato.isEmpty) return false;
+              if (_isDerivative(candidato)) return false;
+              return _titleMatches(alvo, candidato);
+            })
+            // Abaixo de 40 páginas é amostra, ficha de leitura ou verbete solto.
+            .map((book) => book.pageCount ?? 0)
+            .where((pages) => pages >= 40)
+            .toList()
+          ..sort();
+
+    if (paginas.isEmpty) return null;
+    return paginas[paginas.length ~/ 2];
+  }
+
+  /// Um dos dois títulos precisa começar pelo outro, e no limite de palavra:
+  /// "Corte de espinhos e rosas (Vol. 1)" é a mesma obra, "O Messias de Duna"
+  /// não é "Duna" — e `contains` puro deixaria os dois passarem.
+  static bool _titleMatches(String alvo, String candidato) =>
+      alvo == candidato ||
+      candidato.startsWith('$alvo ') ||
+      alvo.startsWith('$candidato ');
+
+  /// Títulos que não são a obra: material sobre ela, ou várias obras juntas.
+  static bool _isDerivative(String normalized) => const [
+    'summary',
+    'resumo',
+    'study guide',
+    'guia de leitura',
+    'analise de',
+    'box',
+    'boxed set',
+    'colecao',
+    'collection',
+    'omnibus',
+    'trilogia',
+    'trilogy',
+    'serie completa',
+  ].any(normalized.contains);
+
+  /// Minúsculas, sem acento e sem pontuação — o suficiente para comparar
+  /// "Corte de Espinhos e Rosas" com "Corte de espinhos e rosas (Vol. 1)".
+  static String _normalizeTitle(String value) {
+    const comAcento = 'áàâãäéèêëíìîïóòôõöúùûüçñ';
+    const semAcento = 'aaaaaeeeeiiiiooooouuuucn';
+
+    final buffer = StringBuffer();
+    for (final rune in value.toLowerCase().runes) {
+      final char = String.fromCharCode(rune);
+      final acento = comAcento.indexOf(char);
+      if (acento >= 0) {
+        buffer.write(semAcento[acento]);
+      } else if (RegExp(r'[a-z0-9]').hasMatch(char)) {
+        buffer.write(char);
+      } else {
+        buffer.write(' ');
+      }
+    }
+    return buffer.toString().replaceAll(RegExp(r'\s+'), ' ').trim();
+  }
+
+  /// Termo entre aspas para a busca por campo do Google Books, sem as aspas
+  /// que o próprio usuário tenha digitado.
+  static String _quoted(String value) => '"${value.replaceAll('"', '')}"';
+
+  static int? _firstPositive(Iterable<int?> values) {
+    for (final value in values) {
+      if (value != null && value > 0) return value;
+    }
+    return null;
   }
 
   static Future<GoogleBook?> getBookById(String bookId) async {

@@ -85,7 +85,7 @@ class ShareReviewCard extends StatelessWidget {
                     ),
             ),
             const SizedBox(height: 14),
-            const _Footer(),
+            const ShareCardFooter(),
           ],
         ),
       ),
@@ -197,42 +197,6 @@ class _Header extends StatelessWidget {
           ),
         ],
       ),
-    );
-  }
-}
-
-class _Footer extends StatelessWidget {
-  const _Footer();
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-
-    return Row(
-      children: [
-        Icon(Icons.auto_stories_rounded, size: 19, color: scheme.primary),
-        const SizedBox(width: 8),
-        Text(
-          'Onde Parei?',
-          style: theme.textTheme.titleSmall?.copyWith(
-            fontSize: 15,
-            color: scheme.primary,
-          ),
-        ),
-        const Spacer(),
-        Flexible(
-          child: Text(
-            'onde-parei-ea32c.web.app',
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: theme.textTheme.labelSmall?.copyWith(
-              fontSize: 12,
-              color: scheme.onSurfaceVariant,
-            ),
-          ),
-        ),
-      ],
     );
   }
 }
