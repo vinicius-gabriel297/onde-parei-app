@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "538339439123",
+    "project_id": "onde-parei-ea32c",
+    "storage_bucket": "onde-parei-ea32c.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:538339439123:android:33a71dc86b86e0d13845e6",
+        "android_client_info": {
+          "package_name": "com.example.ondeParei"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDMs4PWRSyTuNK6rPb59mo827m1wEsQO54"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:538339439123:android:9c890697d2df040a3845e6",
+        "android_client_info": {
+          "package_name": "com.viniciusgabriel.ondeparei"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDMs4PWRSyTuNK6rPb59mo827m1wEsQO54"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
